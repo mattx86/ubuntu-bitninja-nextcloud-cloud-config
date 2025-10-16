@@ -1,5 +1,7 @@
 # Ubuntu + Nextcloud + BitNinja WAF Pro Cloud-Config
 
+Copyright (c) 2025 Matt Smith - [MIT License](LICENSE.md)
+
 ## 📋 Overview
 
 This cloud-config YAML provides a complete, production-ready installation of **Nextcloud** with **BitNinja WAF Pro** on **Ubuntu 24.04 LTS**, following official documentation from both projects.
@@ -86,11 +88,8 @@ Upload to your cloud provider (Hetzner, AWS, DigitalOcean, etc.) as a cloud-conf
 - Passwords File: `/root/system-setup/.passwords` (secure, 600 permissions)
 
 **Main Scripts Available:**
-- Auto-Complete Setup: `/root/system-setup/scripts/auto-complete-setup.sh`
 - Comprehensive System Check: `/root/system-setup/scripts/comprehensive-system-check.sh`
-- BitNinja Features: `/root/system-setup/scripts/configure-bitninja-features.sh`
 - Nextcloud Install: `/root/system-setup/scripts/install-nextcloud.sh`
-- BitNinja Install: `/root/system-setup/scripts/install-bitninja.sh`
 
 #### 🔐 Generated Passwords
 
@@ -117,13 +116,10 @@ cat /root/system-setup/.passwords
 # 2. Verify installation
 /root/system-setup/scripts/comprehensive-system-check.sh
 
-# 3. Optional: Run auto-complete setup verification
-/root/system-setup/scripts/auto-complete-setup.sh
-
-# 4. Check Nextcloud status
+# 3. Check Nextcloud status
 sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ status
 
-# 5. Review setup log
+# 4. Review setup log
 cat /root/system-setup/logs/comprehensive-system-check.log
 ```
 
@@ -149,10 +145,7 @@ sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ user:resetpassword admin
 
 **2. Configure BitNinja (if license key was not provided)**
 ```bash
-# Use the helper script
-/root/system-setup/scripts/install-bitninja.sh
-
-# Or manual installation
+# Manual installation (if needed)
 curl https://get.bitninja.io/install.sh | sudo /bin/bash -s - --license_key=YOUR_LICENSE_KEY
 
 # Verify BitNinja is running
@@ -235,7 +228,7 @@ sudo tail -f /var/log/syslog
 - Monitor BitNinja WAF Pro dashboard for security events
 
 **Next Steps Summary:**
-1. Optional: Run `/root/system-setup/scripts/auto-complete-setup.sh` to verify everything
+1. Optional: Run `/root/system-setup/scripts/comprehensive-system-check.sh` to verify everything
 2. Configure DNS: `your-domain.com` → server IP
 3. Set up SSL certificates in BitNinja dashboard
 4. Change default passwords (see security steps above)
@@ -301,11 +294,7 @@ The cloud-config automatically downloads these scripts from GitHub during deploy
 | Script | Purpose | GitHub URL |
 |--------|---------|------------|
 | `comprehensive-system-check.sh` | Validate system requirements | [`scripts/comprehensive-system-check.sh`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/comprehensive-system-check.sh) |
-| `auto-complete-setup.sh` | Post-deployment verification | [`scripts/auto-complete-setup.sh`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/auto-complete-setup.sh) |
 | `install-nextcloud.sh` | Nextcloud CLI installer | [`scripts/install-nextcloud.sh`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/install-nextcloud.sh) |
-| `install-bitninja.sh` | BitNinja installer helper | [`scripts/install-bitninja.sh`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/install-bitninja.sh) |
-| `configure-bitninja-features.sh` | Enable all BitNinja features | [`scripts/configure-bitninja-features.sh`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/configure-bitninja-features.sh) |
-| `deploy-configs.sh` | Configuration deployment utility | [`scripts/deploy-configs.sh`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/deploy-configs.sh) |
 
 ### ⚙️ Configuration Files
 
@@ -594,11 +583,7 @@ $NEXTCLOUD_DATA_DIR/  # NextCloud user data
 GitHub Repository Structure:
 ├── scripts/          # All automation scripts
 │   ├── install-nextcloud.sh
-│   ├── comprehensive-system-check.sh
-│   ├── configure-bitninja-features.sh
-│   ├── install-bitninja.sh
-│   ├── auto-complete-setup.sh
-│   └── deploy-configs.sh
+│   └── comprehensive-system-check.sh
 ├── conf/             # All configuration files
 │   ├── 60-nextcloud.cnf
 │   ├── nextcloud.conf (Apache)
@@ -607,7 +592,9 @@ GitHub Repository Structure:
 │   ├── bitninja-waf.conf
 │   ├── bitninja-captcha.conf
 │   └── 50unattended-upgrades
-└── ubuntu-bitninja-nextcloud-cloud-config.yaml
+├── ubuntu-bitninja-nextcloud-cloud-config.yaml
+├── README.md
+└── LICENSE.md
 ```
 
 ### Firewall Rules
