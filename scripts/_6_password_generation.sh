@@ -8,9 +8,13 @@ DB_PASS_GEN=$(apg -n 1 -m 16 -x 16 -M NCL)
 DB_ROOT_PASS_GEN=$(apg -n 1 -m 16 -x 16 -M NCL)
 NEXTCLOUD_ADMIN_PASS_GEN=$(apg -n 1 -m 12 -x 12 -M NCL)
 
-# Store passwords securely
-echo "DB_PASS=$DB_PASS_GEN" > /root/system-setup/.passwords
+# Store passwords and usernames securely
+echo "DB_NAME=$DB_NAME" > /root/system-setup/.passwords
+echo "DB_USER=$DB_USER" >> /root/system-setup/.passwords
+echo "DB_PASS=$DB_PASS_GEN" >> /root/system-setup/.passwords
+echo "DB_ROOT_USER=root" >> /root/system-setup/.passwords
 echo "DB_ROOT_PASS=$DB_ROOT_PASS_GEN" >> /root/system-setup/.passwords
+echo "NEXTCLOUD_ADMIN_USER=$NEXTCLOUD_ADMIN_USER" >> /root/system-setup/.passwords
 echo "NEXTCLOUD_ADMIN_PASS=$NEXTCLOUD_ADMIN_PASS_GEN" >> /root/system-setup/.passwords
 chmod 600 /root/system-setup/.passwords
-log_and_console "✓ Secure passwords generated and stored"
+log_and_console "✓ Secure passwords and usernames generated and stored"

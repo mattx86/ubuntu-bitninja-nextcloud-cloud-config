@@ -11,6 +11,10 @@ curl --retry 3 --max-time 60 https://get.bitninja.io/install.sh -o "$DOWNLOADS_D
 chmod 600 "$DOWNLOADS_DIR/bitninja-install.sh"
 
 log_and_console "Installing BitNinja..."
+# Set non-interactive mode and disable needrestart prompts
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
 /bin/bash "$DOWNLOADS_DIR/bitninja-install.sh" --license_key="$BITNINJA_LICENSE" || { log_and_console "ERROR: BitNinja installation failed (check license key)"; exit 1; }
 
 if command -v bitninja-cli &> /dev/null && systemctl is-active --quiet bitninja; then
