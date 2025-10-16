@@ -71,3 +71,12 @@ filter = nextcloud
 logpath = $NEXTCLOUD_WEB_DIR/data/nextcloud.log
 maxretry = 3
 bantime = 7200
+
+# NextCloud Apache Logs Protection
+[nextcloud-apache]
+enabled = true
+filter = apache-auth
+logpath = /var/log/apache2/nextcloud-error.log
+          /var/log/apache2/nextcloud-access.log
+maxretry = 5
+bantime = 3600

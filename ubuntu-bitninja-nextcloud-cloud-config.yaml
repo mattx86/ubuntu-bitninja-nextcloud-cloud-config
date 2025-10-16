@@ -41,7 +41,7 @@
 #   * Available for other processes: ~224MB
 #
 # CONFIGURATION:
-# 1. Update variables in the config section below (lines 45-108)
+# 1. Update variables in the write_files config.sh section below
 # 2. Replace YOUR_LICENSE_KEY with your BitNinja license key
 # 3. Customize domain and other settings as needed
 # 4. Deploy using your cloud provider's console or API
@@ -132,10 +132,25 @@ write_files:
       export LOGS_DIR="/root/system-setup/logs"
       export DOWNLOADS_DIR="/root/system-setup/downloads"
       
+      # ===== GITHUB CONFIGURATION =====
+      export GITHUB_REPO="mattx86/ubuntu-bitninja-nextcloud-cloud-config"
+      export GITHUB_BRANCH="main"
+      export GITHUB_RAW_URL="https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH"
+      
       # ===== SECURITY SETTINGS =====
       export DISABLE_IPV6="true"
       export BIND_LOCALHOST="true"
-    permissions: '0644'
+      
+      # ===== LOGGING CONFIGURATION =====
+      export LOG_FILE="$LOGS_DIR/deployment.log"
+      export CONSOLE="/dev/tty1"
+      
+      # ===== LOGGING FUNCTION =====
+      # Function to output to both log file and console
+      log_and_console() {
+          echo "$1" | tee -a "$LOG_FILE" | tee "$CONSOLE"
+      }
+    permissions: '0600'
 
 # ===== SYSTEM PACKAGES =====
 packages:
@@ -205,365 +220,62 @@ packages:
 
 # ===== DEPLOYMENT COMMANDS =====
 runcmd:
-  # ===== 1. SYSTEM INITIALIZATION =====
+  # Download and execute all deployment scripts in sequence
   - |
-    source /root/system-setup/config.sh
-    echo "=== SYSTEM INITIALIZATION ===" | tee /dev/tty1
-    echo "Setting system hostname and timezone..." | tee /dev/tty1
-    hostnamectl set-hostname $DOMAIN
-    echo "127.0.0.1 localhost" > /etc/hosts
-    echo "127.0.0.1 $DOMAIN" >> /etc/hosts
-    timedatectl set-timezone $TIMEZONE
-    echo "✓ System initialized: $DOMAIN ($TIMEZONE)" | tee /dev/tty1
-
-  # ===== 2. SECURITY HARDENING =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== SECURITY HARDENING ===" | tee /dev/tty1
-    echo "Applying comprehensive system security..." | tee /dev/tty1
+    # Initialize logging
+    LOG_FILE="/root/system-setup/logs/deployment.log"
+    CONSOLE="/dev/tty1"
+    mkdir -p /root/system-setup/logs
     
-    # Disable unnecessary services
-    systemctl disable avahi-daemon cups bluetooth snapd ModemManager 2>/dev/null || true
+    # Log function (mimics log_and_console from config.sh)
+    echo "=== DOWNLOADING DEPLOYMENT SCRIPTS ===" | tee -a "$LOG_FILE" | tee "$CONSOLE"
+    mkdir -p /root/system-setup/scripts
+    cd /root/system-setup/scripts
     
-    # Secure shared memory with tmpfs
-    echo 'tmpfs /tmp tmpfs defaults,nodev,nosuid,noexec,size=1G 0 0' >> /etc/fstab
-    echo 'tmpfs /var/tmp tmpfs defaults,nodev,nosuid,noexec,size=100M 0 0' >> /etc/fstab
+    # Download all numbered deployment scripts with retry logic
+    wget --tries=3 --timeout=30 --show-progress -O _1_directory_structure.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_1_directory_structure.sh || { echo "ERROR: Failed to download _1_directory_structure.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _2_system_initialization.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_2_system_initialization.sh || { echo "ERROR: Failed to download _2_system_initialization.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _3_firewall_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_3_firewall_configuration.sh || { echo "ERROR: Failed to download _3_firewall_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _4_security_hardening.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_4_security_hardening.sh || { echo "ERROR: Failed to download _4_security_hardening.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _5_bitninja_installation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_5_bitninja_installation.sh || { echo "ERROR: Failed to download _5_bitninja_installation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _6_password_generation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_6_password_generation.sh || { echo "ERROR: Failed to download _6_password_generation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _7_mariadb_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_7_mariadb_configuration.sh || { echo "ERROR: Failed to download _7_mariadb_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _8_redis_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_8_redis_configuration.sh || { echo "ERROR: Failed to download _8_redis_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _9_apache_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_9_apache_configuration.sh || { echo "ERROR: Failed to download _9_apache_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _10_php_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_10_php_configuration.sh || { echo "ERROR: Failed to download _10_php_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _11_nextcloud_installation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_11_nextcloud_installation.sh || { echo "ERROR: Failed to download _11_nextcloud_installation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _12_system_optimization.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_12_system_optimization.sh || { echo "ERROR: Failed to download _12_system_optimization.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _13_system_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_13_system_verification.sh || { echo "ERROR: Failed to download _13_system_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _14_service_security_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_14_service_security_verification.sh || { echo "ERROR: Failed to download _14_service_security_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _15_cleanup.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_15_cleanup.sh || { echo "ERROR: Failed to download _15_cleanup.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     
-    # Restrict core dumps and SUID
-    echo '* hard core 0' >> /etc/security/limits.conf
-    echo 'fs.suid_dumpable = 0' >> /etc/sysctl.conf
-    
-    # Network security hardening
-    cat >> /etc/sysctl.conf << 'EOF'
-    # Disable network redirects and source routing
-    net.ipv4.conf.all.send_redirects = 0
-    net.ipv4.conf.default.send_redirects = 0
-    net.ipv4.conf.all.accept_redirects = 0
-    net.ipv4.conf.default.accept_redirects = 0
-    net.ipv4.conf.all.accept_source_route = 0
-    net.ipv4.conf.default.accept_source_route = 0
-    # Enable logging and ICMP protection
-    net.ipv4.conf.all.log_martians = 1
-    net.ipv4.conf.default.log_martians = 1
-    net.ipv4.icmp_echo_ignore_broadcasts = 1
-    net.ipv4.icmp_ignore_bogus_error_responses = 1
-    # TCP security
-    net.ipv4.tcp_syncookies = 1
-    net.ipv4.tcp_rfc1337 = 1
-    EOF
+    # Make all scripts executable with secure permissions (700)
+    chmod 700 /root/system-setup/scripts/*.sh
+    echo "✓ All deployment scripts downloaded with secure permissions (700)" | tee -a "$LOG_FILE" | tee "$CONSOLE"
 
-    # SSH hardening
-    cat >> /etc/ssh/sshd_config.d/ssh-hardening.conf << 'EOF'
-    PasswordAuthentication no
-    KbdInteractiveAuthentication no
-    ChallengeResponseAuthentication no
-    MaxAuthTries 2
-    AllowTcpForwarding no
-    X11Forwarding no
-    AllowAgentForwarding no
-    EOF
+  # Execute deployment scripts in sequence
+  - /root/system-setup/scripts/_1_directory_structure.sh
+  - /root/system-setup/scripts/_2_system_initialization.sh
+  - /root/system-setup/scripts/_3_firewall_configuration.sh
+  - /root/system-setup/scripts/_4_security_hardening.sh
+  - /root/system-setup/scripts/_5_bitninja_installation.sh
+  - /root/system-setup/scripts/_6_password_generation.sh
+  - /root/system-setup/scripts/_7_mariadb_configuration.sh
+  - /root/system-setup/scripts/_8_redis_configuration.sh
+  - /root/system-setup/scripts/_9_apache_configuration.sh
+  - /root/system-setup/scripts/_10_php_configuration.sh
+  - /root/system-setup/scripts/_11_nextcloud_installation.sh
+  - /root/system-setup/scripts/_12_system_optimization.sh
+  - /root/system-setup/scripts/_13_system_verification.sh
+  - /root/system-setup/scripts/_14_service_security_verification.sh
+  - /root/system-setup/scripts/_15_cleanup.sh
 
-  # IPv6 disablement
+  # Final deployment completion message
   - |
-    source /root/system-setup/config.sh
-    if [ "$DISABLE_IPV6" = "true" ]; then
-      echo "Disabling IPv6 system-wide..." | tee /dev/tty1
-      echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> /etc/sysctl.conf
-      echo 'net.ipv6.conf.default.disable_ipv6 = 1' >> /etc/sysctl.conf
-      echo 'net.ipv6.conf.lo.disable_ipv6 = 1' >> /etc/sysctl.conf
-      echo 'GRUB_CMDLINE_LINUX_DEFAULT="ipv6.disable=1"' >> /etc/default/grub
-      update-grub
-      echo "✓ IPv6 disabled system-wide" | tee /dev/tty1
-    fi
-
-  # Apply sysctl changes
-  - sysctl -p && echo "✓ Security hardening completed" | tee /dev/tty1
-
-  # ===== 3. DIRECTORY STRUCTURE =====
-  - |
-    echo "=== CREATING DIRECTORY STRUCTURE ===" | tee /dev/tty1
-    mkdir -p /root/system-setup/{scripts,logs,downloads} && chmod -R 755 /root/system-setup
-    echo "✓ System setup directories created" | tee /dev/tty1
-
-  # ===== 4. PASSWORD GENERATION =====
-  - |
-    echo "=== GENERATING SECURE PASSWORDS ===" | tee /dev/tty1
-    DB_PASS_GEN=$(apg -n 1 -m 16 -x 16 -M NCL)
-    DB_ROOT_PASS_GEN=$(apg -n 1 -m 16 -x 16 -M NCL)
-    NEXTCLOUD_ADMIN_PASS_GEN=$(apg -n 1 -m 12 -x 12 -M NCL)
-    
-    # Store passwords securely
-    echo "DB_PASS=$DB_PASS_GEN" > /root/system-setup/.passwords
-    echo "DB_ROOT_PASS=$DB_ROOT_PASS_GEN" >> /root/system-setup/.passwords
-    echo "NEXTCLOUD_ADMIN_PASS=$NEXTCLOUD_ADMIN_PASS_GEN" >> /root/system-setup/.passwords
-    chmod 600 /root/system-setup/.passwords
-    echo "✓ Secure passwords generated and stored" | tee /dev/tty1
-
-  # ===== 5. BITNINJA INSTALLATION =====
-  - |
-    echo "=== BITNINJA INSTALLATION ===" | tee /dev/tty1
-    echo "Installing BitNinja..." | tee /dev/tty1
-    source /root/system-setup/config.sh
-    curl -s https://get.bitninja.io/install.sh | /bin/bash -s - --license_key=$BITNINJA_LICENSE || echo "BitNinja installation requires a valid license key"
-
-    if command -v bitninja-cli &> /dev/null && systemctl is-active --quiet bitninja; then
-      echo "Configuring BitNinja security features..." | tee /dev/tty1
-      
-      # Enable core security modules
-      bitninja-cli --enable WAF3 2>/dev/null && echo "✓ WAF Pro enabled" | tee /dev/tty1 || echo "WAF Pro already enabled" | tee /dev/tty1
-      bitninja-cli --enable malwarescanner 2>/dev/null && echo "✓ Malware Scanner enabled" | tee /dev/tty1 || echo "Malware Scanner already enabled" | tee /dev/tty1
-      bitninja-cli --enable ipreputation 2>/dev/null && echo "✓ IP Reputation enabled" | tee /dev/tty1 || echo "IP Reputation already enabled" | tee /dev/tty1
-      bitninja-cli --enable honeypot 2>/dev/null && echo "✓ Honeypot enabled" | tee /dev/tty1 || echo "Honeypot already enabled" | tee /dev/tty1
-      bitninja-cli --enable dosprotection 2>/dev/null && echo "✓ DoS Protection enabled" | tee /dev/tty1 || echo "DoS Protection already enabled" | tee /dev/tty1
-      bitninja-cli --enable outboundspam 2>/dev/null && echo "✓ Outbound Spam enabled" | tee /dev/tty1 || echo "Outbound Spam already enabled" | tee /dev/tty1
-      bitninja-cli --enable configparser 2>/dev/null && echo "✓ Config Parser enabled" | tee /dev/tty1 || echo "Config Parser already enabled" | tee /dev/tty1
-      bitninja-cli --enable realtimeprotection 2>/dev/null && echo "✓ Real-time Protection enabled" | tee /dev/tty1 || echo "Real-time Protection already enabled" | tee /dev/tty1
-      bitninja-cli --enable advancedthreat 2>/dev/null && echo "✓ Advanced Threat Detection enabled" | tee /dev/tty1 || echo "Advanced Threat Detection already enabled" | tee /dev/tty1
-      
-      echo "✓ BitNinja security features configured" | tee /dev/tty1
-    else
-      echo "BitNinja not available for automatic configuration" | tee /dev/tty1
-    fi
-
-  # ===== 6. FIREWALL CONFIGURATION =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== FIREWALL CONFIGURATION ===" | tee /dev/tty1
-    echo "Configuring UFW firewall..." | tee /dev/tty1
-    ufw --force enable && ufw default deny incoming && ufw default allow outgoing
-    ufw allow $UFW_SSH_PORT/tcp comment 'SSH administration'
-    ufw allow $UFW_HTTPS_PORT/tcp comment 'HTTPS (BitNinja WAF)'
-    ufw allow $BITNINJA_CAPTCHA_PORT_1/tcp comment 'BitNinja Captcha Port 1'
-    ufw allow $BITNINJA_CAPTCHA_PORT_2/tcp comment 'BitNinja Captcha Port 2'
-    ufw reload
-    echo "✓ UFW configured: SSH ($UFW_SSH_PORT), HTTPS ($UFW_HTTPS_PORT), BitNinja Captcha ports" | tee /dev/tty1
-
-  # ===== 7. MARIADB DATABASE SETUP =====
-  - |
-    echo "=== MARIADB DATABASE SETUP ===" | tee /dev/tty1
-    echo "Starting and enabling MariaDB..." | tee /dev/tty1
-    systemctl start mariadb && systemctl enable mariadb
-
-    source /root/system-setup/config.sh
-    echo "Downloading MariaDB configuration..." | tee /dev/tty1
-    wget -O /etc/mysql/mariadb.conf.d/60-nextcloud.cnf https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/60-nextcloud.cnf
-    sed -i "s/\$MARIADB_BUFFER_POOL/$MARIADB_BUFFER_POOL/g" /etc/mysql/mariadb.conf.d/60-nextcloud.cnf
-    sed -i "s/\$MARIADB_IO_CAPACITY/$MARIADB_IO_CAPACITY/g" /etc/mysql/mariadb.conf.d/60-nextcloud.cnf
-    sed -i "s/\$MARIADB_MAX_CONNECTIONS/$MARIADB_MAX_CONNECTIONS/g" /etc/mysql/mariadb.conf.d/60-nextcloud.cnf
-    systemctl restart mariadb
-    echo "✓ MariaDB configured and restarted" | tee /dev/tty1
-
-    echo "Creating NextCloud database and user..." | tee /dev/tty1
-    mysql -e "CREATE DATABASE IF NOT EXISTS $DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-    mysql -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
-    mysql -e "GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';"
-    mysql -e "FLUSH PRIVILEGES;"
-    echo "✓ NextCloud database and user created" | tee /dev/tty1
-
-    echo "Applying MariaDB security hardening..." | tee /dev/tty1
-    mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PASS'; DELETE FROM mysql.user WHERE User=''; DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1'); DROP DATABASE IF EXISTS test; DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%'; FLUSH PRIVILEGES;"
-    echo "✓ MariaDB security hardening completed" | tee /dev/tty1
-
-  # ===== 8. REDIS CACHING SETUP =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== REDIS CACHING SETUP ===" | tee /dev/tty1
-    echo "Configuring Redis cache..." | tee /dev/tty1
-    systemctl start redis-server && systemctl enable redis-server
-    
-    # Redis security configuration
-    if [ "$BIND_LOCALHOST" = "true" ]; then
-      sed -i 's/^# bind 127.0.0.1 ::1/bind 127.0.0.1/; s/^protected-mode yes/protected-mode yes/' /etc/redis/redis.conf
-    fi
-    echo -e 'rename-command FLUSHDB ""\nrename-command FLUSHALL ""\nrename-command KEYS ""\nrename-command CONFIG ""\nrename-command EVAL ""' >> /etc/redis/redis.conf
-    systemctl restart redis-server
-    echo "✓ Redis configured with security hardening" | tee /dev/tty1
-
-  # ===== 9. APACHE WEB SERVER SETUP =====
-  - |
-    echo "=== APACHE WEB SERVER SETUP ===" | tee /dev/tty1
-    echo "Starting and enabling Apache..." | tee /dev/tty1
-    systemctl enable apache2
-
-    source /root/system-setup/config.sh
-    echo "Configuring Apache modules and localhost binding..." | tee /dev/tty1
-    a2enmod rewrite headers env dir mime setenvif remoteip && a2dismod status && a2dissite 000-default.conf
-    
-    # Configure Apache for localhost-only binding (BitNinja WAF handles external HTTPS)
-    sed -i 's/Listen 80/Listen 127.0.0.1:80/' /etc/apache2/ports.conf
-    sed -i 's/Listen 443/Listen 127.0.0.1:443/' /etc/apache2/ports.conf
-    echo "✓ Apache configured for localhost-only binding" | tee /dev/tty1
-
-    echo "Applying Apache security hardening..." | tee /dev/tty1
-    sed -i 's/^ServerTokens.*/ServerTokens Prod/' /etc/apache2/conf-available/security.conf
-    sed -i 's/^ServerSignature.*/ServerSignature Off/' /etc/apache2/conf-available/security.conf
-    a2enconf security
-    echo "✓ Apache security hardening applied" | tee /dev/tty1
-
-  # ===== 10. PHP CONFIGURATION =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== PHP CONFIGURATION ===" | tee /dev/tty1
-    echo "Configuring PHP for NextCloud..." | tee /dev/tty1
-    
-    # PHP performance and security configuration
-    sed -i "s/memory_limit = .*/memory_limit = $PHP_MEMORY_LIMIT/; s/upload_max_filesize = .*/upload_max_filesize = $PHP_UPLOAD_MAX/; s/post_max_size = .*/post_max_size = $PHP_POST_MAX/; s/max_execution_time = .*/max_execution_time = $PHP_MAX_EXECUTION/; s/max_input_time = .*/max_input_time = $PHP_MAX_INPUT/; s/;date.timezone =.*/date.timezone = $TIMEZONE/" /etc/php/8.3/apache2/php.ini
-    
-    # OPcache optimization for NextCloud
-    sed -i "s/;opcache.enable=.*/opcache.enable=$OPCACHE_ENABLE/; s/;opcache.interned_strings_buffer=.*/opcache.interned_strings_buffer=$OPCACHE_STRING_BUFFER/; s/;opcache.max_accelerated_files=.*/opcache.max_accelerated_files=$OPCACHE_MAX_FILES/; s/;opcache.memory_consumption=.*/opcache.memory_consumption=$OPCACHE_MEMORY/; s/;opcache.save_comments=.*/opcache.save_comments=1/; s/;opcache.revalidate_freq=.*/opcache.revalidate_freq=1/" /etc/php/8.3/apache2/php.ini
-    
-    # PHP security hardening
-    sed -i 's/expose_php = .*/expose_php = Off/; s/;session.cookie_secure =.*/session.cookie_secure = 1/; s/;session.cookie_httponly =.*/session.cookie_httponly = 1/; s/;session.use_strict_mode =.*/session.use_strict_mode = 1/' /etc/php/8.3/apache2/php.ini
-    echo "✓ PHP configured with performance and security optimizations" | tee /dev/tty1
-
-  # ===== 11. NEXTCLOUD INSTALLATION =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== NEXTCLOUD INSTALLATION ===" | tee /dev/tty1
-    echo "Downloading and installing NextCloud..." | tee /dev/tty1
-    cd $DOWNLOADS_DIR && \
-    wget https://download.nextcloud.com/server/releases/latest.zip -O nextcloud.zip && \
-    unzip nextcloud.zip && \
-    mv nextcloud $NEXTCLOUD_WEB_DIR && \
-    chown -R www-data:www-data $NEXTCLOUD_WEB_DIR && \
-    chmod -R 755 $NEXTCLOUD_WEB_DIR && \
-    echo "✓ NextCloud installed to $NEXTCLOUD_WEB_DIR" | tee /dev/tty1
-
-    echo "Creating NextCloud data directory..." | tee /dev/tty1
-    mkdir -p $NEXTCLOUD_DATA_DIR && chown -R www-data:www-data $NEXTCLOUD_DATA_DIR && chmod -R 755 $NEXTCLOUD_DATA_DIR
-    echo "✓ NextCloud data directory created" | tee /dev/tty1
-
-  # ===== 12. APACHE VIRTUAL HOST CONFIGURATION =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== APACHE VIRTUAL HOST CONFIGURATION ===" | tee /dev/tty1
-    echo "Downloading Apache NextCloud configuration..." | tee /dev/tty1
-    wget -O /etc/apache2/sites-available/nextcloud.conf https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/nextcloud.conf
-    sed -i "s/\$DOMAIN/$DOMAIN/g" /etc/apache2/sites-available/nextcloud.conf
-    sed -i "s/\$ADMIN_EMAIL/$ADMIN_EMAIL/g" /etc/apache2/sites-available/nextcloud.conf
-    sed -i "s/\$NEXTCLOUD_WEB_DIR/$NEXTCLOUD_WEB_DIR/g" /etc/apache2/sites-available/nextcloud.conf
-    a2ensite nextcloud.conf
-    systemctl reload apache2
-    echo "✓ Apache virtual host configured" | tee /dev/tty1
-
-  # ===== 13. NEXTCLOUD CLI CONFIGURATION =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== NEXTCLOUD CLI CONFIGURATION ===" | tee /dev/tty1
-    echo "Downloading NextCloud installation script..." | tee /dev/tty1
-    wget -O $SCRIPTS_DIR/install-nextcloud.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/install-nextcloud.sh
-    chmod +x $SCRIPTS_DIR/install-nextcloud.sh
-    $SCRIPTS_DIR/install-nextcloud.sh
-    echo "✓ NextCloud CLI configuration completed" | tee /dev/tty1
-
-  # ===== 14. SECURITY HARDENING =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== SECURITY HARDENING ===" | tee /dev/tty1
-    echo "Configuring fail2ban..." | tee /dev/tty1
-    
-    # Download fail2ban configurations
-    wget -O /etc/fail2ban/jail.local https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/jail.local
-    sed -i "s/\$UFW_SSH_PORT/$UFW_SSH_PORT/g" /etc/fail2ban/jail.local
-    sed -i "s/\$UFW_HTTPS_PORT/$UFW_HTTPS_PORT/g" /etc/fail2ban/jail.local
-    sed -i "s/\$BITNINJA_CAPTCHA_PORT_1/$BITNINJA_CAPTCHA_PORT_1/g" /etc/fail2ban/jail.local
-    sed -i "s/\$BITNINJA_CAPTCHA_PORT_2/$BITNINJA_CAPTCHA_PORT_2/g" /etc/fail2ban/jail.local
-    sed -i "s/\$NEXTCLOUD_WEB_DIR/$NEXTCLOUD_WEB_DIR/g" /etc/fail2ban/jail.local
-    
-    # Download filter configurations
-    wget -O /etc/fail2ban/filter.d/nextcloud.conf https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/nextcloud.conf
-    wget -O /etc/fail2ban/filter.d/bitninja-waf.conf https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/bitninja-waf.conf
-    wget -O /etc/fail2ban/filter.d/bitninja-captcha.conf https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/bitninja-captcha.conf
-    
-    systemctl start fail2ban && systemctl enable fail2ban
-    echo "✓ fail2ban configured for SSH, BitNinja, and BitNinja protection" | tee /dev/tty1
-  
-  # Configure automatic security updates
-  - |
-    echo "Downloading unattended upgrades configuration..." | tee /dev/tty1
-    wget -O /etc/apt/apt.conf.d/50unattended-upgrades https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/50unattended-upgrades
-    echo "✓ Automatic security updates configured" | tee /dev/tty1
-
-  # ===== 15. SYSTEM OPTIMIZATION =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== SYSTEM OPTIMIZATION ===" | tee /dev/tty1
-    echo "Applying system performance optimizations..." | tee /dev/tty1
-    echo "vm.swappiness=10" >> /etc/sysctl.conf
-    echo "net.core.rmem_max = 16777216" >> /etc/sysctl.conf
-    echo "net.core.wmem_max = 16777216" >> /etc/sysctl.conf
-    sysctl -p
-    echo "✓ System performance optimizations applied" | tee /dev/tty1
-
-  # ===== 16. HELPER SCRIPTS DOWNLOAD =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== DOWNLOADING HELPER SCRIPTS ===" | tee /dev/tty1
-    echo "Downloading system management scripts..." | tee /dev/tty1
-    
-    # Download all helper scripts
-    wget -O $SCRIPTS_DIR/comprehensive-system-check.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/comprehensive-system-check.sh
-    
-    # Make scripts executable
-    chmod +x $SCRIPTS_DIR/*.sh
-    echo "✓ Helper scripts downloaded and configured" | tee /dev/tty1
-
-  # ===== 17. SYSTEM VERIFICATION =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== SYSTEM VERIFICATION ===" | tee /dev/tty1
-    echo "Running comprehensive system check..." | tee /dev/tty1
-    $SCRIPTS_DIR/comprehensive-system-check.sh
-    echo "✓ System verification completed" | tee /dev/tty1
-
-  # ===== 18. SERVICE SECURITY VERIFICATION =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== SERVICE SECURITY VERIFICATION ===" | tee /dev/tty1
-    echo "Verifying service bindings..." | tee /dev/tty1
-    
-    # Check service bindings
-    if netstat -tlnp | grep -q ":3306.*127.0.0.1"; then
-      echo "✓ MariaDB bound to localhost only" | tee /dev/tty1
-    else
-      echo "⚠️  MariaDB may not be bound to localhost only" | tee /dev/tty1
-    fi
-    
-    if netstat -tlnp | grep -q ":6379.*127.0.0.1"; then
-      echo "✓ Redis bound to localhost only" | tee /dev/tty1
-    else
-      echo "⚠️  Redis may not be bound to localhost only" | tee /dev/tty1
-    fi
-    
-    if netstat -tlnp | grep -q ":80.*127.0.0.1"; then
-      echo "✓ Apache bound to localhost only (BitNinja WAF handles HTTPS)" | tee /dev/tty1
-    else
-      echo "⚠️  Apache may not be bound to localhost only" | tee /dev/tty1
-    fi
-    
-    if [ "$DISABLE_IPV6" = "true" ]; then
-      if [ ! -f /proc/net/if_inet6 ]; then
-        echo "✓ IPv6 successfully disabled" | tee /dev/tty1
-      else
-        echo "⚠️  IPv6 may still be enabled" | tee /dev/tty1
-      fi
-    fi
-    
-    echo "✓ Service security verification completed" | tee /dev/tty1
-
-  # ===== 19. CLEANUP =====
-  - |
-    source /root/system-setup/config.sh
-    echo "=== CLEANUP ===" | tee /dev/tty1
-    echo "Performing final cleanup..." | tee /dev/tty1
-    apt-get autoremove -y && apt-get clean
-    rm -f $DOWNLOADS_DIR/nextcloud.zip
-    echo "✓ System cleanup completed" | tee /dev/tty1
-
-  # ===== 20. COMPLETION =====
-  - |
-    echo "=== DEPLOYMENT COMPLETE ===" | tee /dev/tty1
-    echo "✓ All components configured and ready for use." | tee /dev/tty1
+    LOG_FILE="/root/system-setup/logs/deployment.log"
+    CONSOLE="/dev/tty1"
+    echo "=== DEPLOYMENT COMPLETE ===" | tee -a "$LOG_FILE" | tee "$CONSOLE"
+    echo "✓ All components configured and ready for use." | tee -a "$LOG_FILE" | tee "$CONSOLE"
 
 # ===== FINAL MESSAGE =====
 final_message: "Nextcloud + BitNinja setup complete! See README.md for comprehensive instructions and next steps."

@@ -1,17 +1,14 @@
 #!/bin/bash
+# System Verification Script
 # Comprehensive System Requirements Check for NextCloud + BitNinja
 # Checks minimum requirements for both NextCloud and BitNinja
 
-# Load configuration variables
 source /root/system-setup/config.sh
 
-LOG_FILE="$LOGS_DIR/comprehensive-system-check.log"
-CONSOLE="/dev/tty1"
+# Override LOG_FILE for system verification
+LOG_FILE="$LOGS_DIR/system-verification.log"
 
-# Function to output to both log and console
-log_and_console() {
-    echo "$1" | tee -a $LOG_FILE | tee $CONSOLE
-}
+log_and_console "=== SYSTEM VERIFICATION ==="
 
 # Function to check if value meets minimum requirement
 check_minimum() {
@@ -269,3 +266,4 @@ fi
 log_and_console ""
 log_and_console "Detailed log available at: $LOG_FILE"
 log_and_console "========================================"
+log_and_console "✓ System verification completed"

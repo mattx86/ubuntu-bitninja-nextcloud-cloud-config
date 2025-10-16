@@ -25,9 +25,17 @@ Internet → BitNinja WAF Pro (Caddy + TLS 1.3) → Apache (localhost:80) → Ne
 
 ### 1. Before Deployment
 
+**⚠️ CRITICAL: SSH Key Requirement**
+
+This configuration **disables password authentication** for SSH security. You MUST have an SSH key configured in your cloud provider BEFORE deployment, or you will be locked out of your server!
+
+- Most cloud providers (Hetzner, DigitalOcean, AWS, etc.) allow you to add SSH keys during server creation
+- If you don't have an SSH key, create one first: `ssh-keygen -t ed25519 -C "your_email@example.com"`
+- Add your public key to your cloud provider's dashboard before deploying
+
 **Required Changes:**
 
-1. **Update configuration variables** in the config section (lines 15-67):
+1. **Update configuration variables** in the config section of the YAML file:
    ```yaml
    # ===== SYSTEM CONFIGURATION =====
    export DOMAIN="your-domain.com"
@@ -81,15 +89,14 @@ Upload to your cloud provider (Hetzner, AWS, DigitalOcean, etc.) as a cloud-conf
 - SSL termination configured for BitNinja
 
 **Critical Files Created:**
-- Setup Instructions: `/root/SETUP_INSTRUCTIONS.txt` (references README.md)
 - Scripts Directory: `/root/system-setup/scripts/`
 - Logs Directory: `/root/system-setup/logs/`
 - Downloads Directory: `/root/system-setup/downloads/`
 - Passwords File: `/root/system-setup/.passwords` (secure, 600 permissions)
+- Configuration: `/root/system-setup/config.sh` (environment variables)
 
 **Main Scripts Available:**
-- Comprehensive System Check: `/root/system-setup/scripts/comprehensive-system-check.sh`
-- Nextcloud Install: `/root/system-setup/scripts/install-nextcloud.sh`
+- System Verification: `/root/system-setup/scripts/_13_system_verification.sh`
 
 #### 🔐 Generated Passwords
 
@@ -114,13 +121,15 @@ cat /root/system-setup/.passwords
 cat /root/system-setup/.passwords
 
 # 2. Verify installation
-/root/system-setup/scripts/comprehensive-system-check.sh
+/root/system-setup/scripts/_13_system_verification.sh
 
 # 3. Check Nextcloud status
 sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ status
 
 # 4. Review setup log
-cat /root/system-setup/logs/comprehensive-system-check.log
+cat /root/system-setup/logs/deployment.log
+   # Or view system verification log
+   cat /root/system-setup/logs/system-verification.log
 ```
 
 #### 🔐 Critical Security Steps
@@ -217,7 +226,8 @@ sudo tail -f /var/log/syslog
 - **Passwords:** `/root/system-setup/.passwords`
 
 **Setup Log Location:**
-- **Comprehensive System Check:** `/root/system-setup/logs/comprehensive-system-check.log`
+- **Deployment Log:** `/root/system-setup/logs/deployment.log`
+- **System Verification:** `/root/system-setup/logs/system-verification.log`
 - Review this log for detailed system requirements check results
 
 #### 🔒 Security Recommendations
@@ -228,7 +238,7 @@ sudo tail -f /var/log/syslog
 - Monitor BitNinja WAF Pro dashboard for security events
 
 **Next Steps Summary:**
-1. Optional: Run `/root/system-setup/scripts/comprehensive-system-check.sh` to verify everything
+1. Optional: Run `/root/system-setup/scripts/_13_system_verification.sh` to verify everything
 2. Configure DNS: `your-domain.com` → server IP
 3. Set up SSL certificates in BitNinja dashboard
 4. Change default passwords (see security steps above)
@@ -287,14 +297,9 @@ To use 2GB settings, uncomment the 2GB configuration lines in the config section
 
 ## 📚 Scripts and Configuration Files
 
-### 🔧 Helper Scripts
+### 🔧 Deployment Scripts
 
-The cloud-config automatically downloads these scripts from GitHub during deployment:
-
-| Script | Purpose | GitHub URL |
-|--------|---------|------------|
-| `comprehensive-system-check.sh` | Validate system requirements | [`scripts/comprehensive-system-check.sh`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/comprehensive-system-check.sh) |
-| `install-nextcloud.sh` | Nextcloud CLI installer | [`scripts/install-nextcloud.sh`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/install-nextcloud.sh) |
+All deployment scripts are automatically downloaded and executed during cloud-init. The comprehensive system verification is performed by `_13_system_verification.sh` after deployment is complete.
 
 ### ⚙️ Configuration Files
 
@@ -302,13 +307,13 @@ All configuration files are downloaded from GitHub during deployment:
 
 | Config File | Purpose | GitHub URL |
 |-------------|---------|------------|
-| `60-nextcloud.cnf` | MariaDB optimization settings | [`conf/60-nextcloud.cnf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/60-nextcloud.cnf) |
-| `nextcloud.conf` | Apache virtual host configuration | [`conf/nextcloud.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/nextcloud.conf) |
-| `jail.local` | fail2ban jail configuration | [`conf/jail.local`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/jail.local) |
-| `nextcloud.conf` (fail2ban) | NextCloud fail2ban filter | [`conf/nextcloud.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/nextcloud.conf) |
-| `bitninja-waf.conf` | BitNinja WAF fail2ban filter | [`conf/bitninja-waf.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/bitninja-waf.conf) |
-| `bitninja-captcha.conf` | BitNinja Captcha fail2ban filter | [`conf/bitninja-captcha.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/bitninja-captcha.conf) |
-| `50unattended-upgrades` | Automatic security updates | [`conf/50unattended-upgrades`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/50unattended-upgrades) |
+| `50ubuntu-unattended-upgrades` | Automatic security updates (Ubuntu) | [`conf/50ubuntu-unattended-upgrades`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/50ubuntu-unattended-upgrades) |
+| `fail2ban-jail.local` | fail2ban jail configuration | [`conf/fail2ban-jail.local`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-jail.local) |
+| `fail2ban-nextcloud.conf` | fail2ban filter (monitors Nextcloud app login failures) | [`conf/fail2ban-nextcloud.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-nextcloud.conf) |
+| `fail2ban-bitninja-waf.conf` | fail2ban filter (monitors BitNinja WAF detections) | [`conf/fail2ban-bitninja-waf.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-bitninja-waf.conf) |
+| `fail2ban-bitninja-captcha.conf` | fail2ban filter (monitors BitNinja Captcha abuse) | [`conf/fail2ban-bitninja-captcha.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-bitninja-captcha.conf) |
+| `nextcloud-apache-vhost.conf` | Apache virtual host configuration | [`conf/nextcloud-apache-vhost.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/nextcloud-apache-vhost.conf) |
+| `nextcloud-mariadb.cnf` | MariaDB optimization settings | [`conf/nextcloud-mariadb.cnf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/nextcloud-mariadb.cnf) |
 
 ---
 
@@ -425,7 +430,9 @@ sudo tail -f /var/log/bitninja-waf3/current.log
 sudo tail -f /var/log/bitninja-waf3/audit.log
 
 # System check
-sudo tail -f $LOGS_DIR/comprehensive-system-check.log
+sudo tail -f $LOGS_DIR/deployment.log
+   # Or watch system verification
+   sudo tail -f $LOGS_DIR/system-verification.log
 ```
 
 ---
@@ -478,7 +485,7 @@ sudo -u www-data php $NEXTCLOUD_WEB_DIR/updater/updater.phar
 sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ config:list
 
 # Run system check
-/root/system-setup/scripts/comprehensive-system-check.sh
+/root/system-setup/scripts/_13_system_verification.sh
 ```
 
 ### Backups
@@ -537,7 +544,7 @@ sudo tail -f /var/log/bitninja-waf3/current.log
 #### Nextcloud Management
 ```bash
 # Run comprehensive system requirements check
-/root/system-setup/scripts/comprehensive-system-check.sh
+/root/system-setup/scripts/_13_system_verification.sh
 
 # Check Nextcloud status
 sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ status
@@ -582,16 +589,29 @@ $NEXTCLOUD_DATA_DIR/  # NextCloud user data
 
 GitHub Repository Structure:
 ├── scripts/          # All automation scripts
-│   ├── install-nextcloud.sh
-│   └── comprehensive-system-check.sh
+│   ├── _1_directory_structure.sh
+│   ├── _2_system_initialization.sh
+│   ├── _3_firewall_configuration.sh
+│   ├── _4_security_hardening.sh
+│   ├── _5_bitninja_installation.sh
+│   ├── _6_password_generation.sh
+│   ├── _7_mariadb_configuration.sh
+│   ├── _8_redis_configuration.sh
+│   ├── _9_apache_configuration.sh
+│   ├── _10_php_configuration.sh
+│   ├── _11_nextcloud_installation.sh
+│   ├── _12_system_optimization.sh
+│   ├── _13_system_verification.sh
+│   ├── _14_service_security_verification.sh
+│   └── _15_cleanup.sh
 ├── conf/             # All configuration files
-│   ├── 60-nextcloud.cnf
-│   ├── nextcloud.conf (Apache)
-│   ├── jail.local
-│   ├── nextcloud.conf (fail2ban filter)
-│   ├── bitninja-waf.conf
-│   ├── bitninja-captcha.conf
-│   └── 50unattended-upgrades
+│   ├── 50ubuntu-unattended-upgrades
+│   ├── fail2ban-bitninja-captcha.conf
+│   ├── fail2ban-bitninja-waf.conf
+│   ├── fail2ban-jail.local
+│   ├── fail2ban-nextcloud.conf
+│   ├── nextcloud-apache-vhost.conf
+│   └── nextcloud-mariadb.cnf
 ├── ubuntu-bitninja-nextcloud-cloud-config.yaml
 ├── README.md
 └── LICENSE.md
@@ -647,28 +667,6 @@ GitHub Repository Structure:
 
 ---
 
-## 🔄 Version History
-
-### Current Version: v4.0
-- ✅ **GitHub Integration:** All scripts and configs downloaded from GitHub during deployment
-- ✅ **Modular Architecture:** Scripts and configurations separated for better maintainability
-- ✅ **Comprehensive Documentation:** SETUP_INSTRUCTIONS.txt content merged into README.md
-- ✅ **Configuration Management:** All config files documented with GitHub URLs
-- ✅ **52.3% Size Reduction:** YAML file optimized from 65,610 to 31,310 bytes
-- ✅ **BitNinja WAF Pro (WAF3):** Upgraded from WAF2 to Caddy-based WAF Pro
-- ✅ **Variable-Based Configuration:** All hardcoded values replaced with variables
-- ✅ **Modern MariaDB:** Updated authentication methods
-- ✅ **Complete PHP Stack:** All required and recommended modules included
-- ✅ **System Hardening:** IPv6 disabled, services bound to localhost
-- ✅ **Enhanced Security:** BitNinja Captcha ports, comprehensive fail2ban
-- ✅ **Organized Structure:** Scripts and logs in dedicated directories
-
-### Previous Versions
-- **v2.0:** BitNinja WAF2 with SSL termination
-- **v1.0:** Basic Nextcloud installation
-
----
-
 ## 🎓 Learn More
 
 ### Recommended Reading
@@ -698,7 +696,7 @@ If you encounter issues:
 
 2. **Run diagnostics:**
    ```bash
-   /root/system-setup/scripts/comprehensive-system-check.sh
+   /root/system-setup/scripts/_13_system_verification.sh
    ```
 
 3. **Check logs:**
