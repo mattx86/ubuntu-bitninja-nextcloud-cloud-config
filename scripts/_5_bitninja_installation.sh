@@ -17,19 +17,56 @@ export NEEDRESTART_MODE=a
 export NEEDRESTART_SUSPEND=1
 /bin/bash "$DOWNLOADS_DIR/bitninja-install.sh" --license_key="$BITNINJA_LICENSE" || { log_and_console "ERROR: BitNinja installation failed (check license key)"; exit 1; }
 
-if command -v bitninja-cli &> /dev/null && systemctl is-active --quiet bitninja; then
+if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; then
   log_and_console "Configuring BitNinja security features..."
   
   # Enable core security modules
-  bitninja-cli --enable WAF3 2>/dev/null && log_and_console "✓ WAF Pro enabled" || log_and_console "WAF Pro already enabled"
-  bitninja-cli --enable malwarescanner 2>/dev/null && log_and_console "✓ Malware Scanner enabled" || log_and_console "Malware Scanner already enabled"
-  bitninja-cli --enable ipreputation 2>/dev/null && log_and_console "✓ IP Reputation enabled" || log_and_console "IP Reputation already enabled"
-  bitninja-cli --enable honeypot 2>/dev/null && log_and_console "✓ Honeypot enabled" || log_and_console "Honeypot already enabled"
-  bitninja-cli --enable dosprotection 2>/dev/null && log_and_console "✓ DoS Protection enabled" || log_and_console "DoS Protection already enabled"
-  bitninja-cli --enable outboundspam 2>/dev/null && log_and_console "✓ Outbound Spam enabled" || log_and_console "Outbound Spam already enabled"
-  bitninja-cli --enable configparser 2>/dev/null && log_and_console "✓ Config Parser enabled" || log_and_console "Config Parser already enabled"
-  bitninja-cli --enable realtimeprotection 2>/dev/null && log_and_console "✓ Real-time Protection enabled" || log_and_console "Real-time Protection already enabled"
-  bitninja-cli --enable advancedthreat 2>/dev/null && log_and_console "✓ Advanced Threat Detection enabled" || log_and_console "Advanced Threat Detection already enabled"
+  bitninjacli --module=WAF3 --enable 2>/dev/null && log_and_console "✓ WAF Pro enabled" || log_and_console "WAF Pro already enabled"
+  bitninjacli --module=MalwareScanner --enable 2>/dev/null && log_and_console "✓ Malware Scanner enabled" || log_and_console "Malware Scanner already enabled"
+  bitninjacli --module=IpReputation --enable 2>/dev/null && log_and_console "✓ IP Reputation enabled" || log_and_console "IP Reputation already enabled"
+  bitninjacli --module=DosDetection --enable 2>/dev/null && log_and_console "✓ DoS Detection enabled" || log_and_console "DoS Detection already enabled"
+  bitninjacli --module=OutboundWaf --enable 2>/dev/null && log_and_console "✓ Outbound WAF enabled" || log_and_console "Outbound WAF already enabled"
+  bitninjacli --module=SenseLog --enable 2>/dev/null && log_and_console "✓ SenseLog enabled" || log_and_console "SenseLog already enabled"
+  bitninjacli --module=DefenseRobot --enable 2>/dev/null && log_and_console "✓ Defense Robot enabled" || log_and_console "Defense Robot already enabled"
+  
+  # Configure DNAT rules for WAF Pro via UFW
+  log_and_console "Configuring DNAT rules for WAF Pro..."
+  
+  # Get server's primary IP address
+  SERVER_IP=$(hostname -I | awk '{print $1}')
+  
+  # Add DNAT rule to UFW's before.rules for persistence
+  log_and_console "Adding DNAT rule to UFW configuration: port 443 → 60414 (WAF3 HTTPS)"
+  
+  # Backup UFW before.rules
+  cp /etc/ufw/before.rules /etc/ufw/before.rules.backup
+  
+  # Check if DNAT rules already exist
+  if ! grep -q "BN_WAF_REDIR" /etc/ufw/before.rules; then
+    # Add DNAT rules after the *nat table section
+    sed -i '/^\*nat$/a \
+:BN_WAF_REDIR - [0:0]\n\
+# BitNinja WAF Pro DNAT rule - redirect port 443 to WAF3 SSL Terminating port\n\
+-A PREROUTING -p tcp -m tcp --dport 443 -j BN_WAF_REDIR\n\
+-A BN_WAF_REDIR -d '"$SERVER_IP"'/32 -p tcp -m tcp --dport 443 -j DNAT --to-destination '"127.0.0.1"':60414' /etc/ufw/before.rules
+    
+    log_and_console "✓ DNAT rules added to /etc/ufw/before.rules"
+    
+    # Reload UFW to apply changes
+    ufw reload
+    log_and_console "✓ UFW reloaded with DNAT rules"
+  else
+    log_and_console "✓ DNAT rules already exist in UFW configuration"
+  fi
+  
+  # Verify WAF Pro port redirections are active
+  log_and_console "Verifying WAF Pro port redirections..."
+  sleep 3  # Give WAF Pro time to set up redirections
+  if bitninjacli --module=WAF3 --status 2>/dev/null | grep -q "active"; then
+    log_and_console "✓ WAF Pro is active and handling port 443 → 60414 → Apache"
+  else
+    log_and_console "⚠ WARNING: WAF Pro status check inconclusive - manual verification recommended"
+  fi
   
   log_and_console "✓ BitNinja security features configured"
 else
