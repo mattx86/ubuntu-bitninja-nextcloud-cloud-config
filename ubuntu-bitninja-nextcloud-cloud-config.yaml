@@ -252,6 +252,17 @@ runcmd:
     net.ipv4.tcp_rfc1337 = 1
     EOF
 
+    # SSH hardening
+    cat >> /etc/ssh/sshd_config.d/ssh-hardening.conf << 'EOF'
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    ChallengeResponseAuthentication no
+    MaxAuthTries 2
+    AllowTcpForwarding no
+    X11Forwarding no
+    AllowAgentForwarding no
+    EOF
+
   # IPv6 disablement
   - |
     source /root/system-setup/config.sh
