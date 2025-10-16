@@ -1,0 +1,23 @@
+[mysqld]
+# Nextcloud recommended settings
+innodb_buffer_pool_size = $MARIADB_BUFFER_POOL
+innodb_io_capacity = $MARIADB_IO_CAPACITY
+innodb_flush_log_at_trx_commit = 2
+innodb_file_per_table = 1
+max_connections = $MARIADB_MAX_CONNECTIONS
+
+# Enhanced security settings
+bind-address = 127.0.0.1
+skip-networking = false
+local-infile = 0
+symbolic-links = 0
+skip-name-resolve = 1
+
+# SSL configuration (disabled for localhost-only binding)
+# Note: SSL not required for localhost connections
+# require_secure_transport = OFF
+
+# Binary logging (optional, for replication/backup)
+# log_bin = /var/log/mysql/mysql-bin.log
+# binlog_format = ROW
+# expire_logs_days = 10

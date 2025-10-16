@@ -1,0 +1,73 @@
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 3
+backend = systemd
+
+# SSH Protection
+[sshd]
+enabled = true
+port = $UFW_SSH_PORT
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 7200
+
+# HTTPS/WAF Protection (BitNinja WAF logs)
+[bitninja-waf]
+enabled = true
+port = $UFW_HTTPS_PORT
+filter = bitninja-waf
+logpath = /var/log/bitninja-waf3/current.log
+maxretry = 5
+bantime = 3600
+
+# BitNinja Captcha Port Protection
+[bitninja-captcha-1]
+enabled = true
+port = $BITNINJA_CAPTCHA_PORT_1
+filter = bitninja-captcha
+logpath = /var/log/bitninja-waf3/current.log
+maxretry = 10
+bantime = 1800
+
+[bitninja-captcha-2]
+enabled = true
+port = $BITNINJA_CAPTCHA_PORT_2
+filter = bitninja-captcha
+logpath = /var/log/bitninja-waf3/current.log
+maxretry = 10
+bantime = 1800
+
+# Apache Protection (for localhost traffic)
+[apache-auth]
+enabled = true
+filter = apache-auth
+logpath = /var/log/apache2/error.log
+maxretry = 3
+
+[apache-badbots]
+enabled = true
+filter = apache-badbots
+logpath = /var/log/apache2/access.log
+maxretry = 2
+
+[apache-noscript]
+enabled = true
+filter = apache-noscript
+logpath = /var/log/apache2/access.log
+maxretry = 6
+
+[apache-overflows]
+enabled = true
+filter = apache-overflows
+logpath = /var/log/apache2/access.log
+maxretry = 2
+
+# NextCloud Protection
+[nextcloud]
+enabled = true
+filter = nextcloud
+logpath = $NEXTCLOUD_WEB_DIR/data/nextcloud.log
+maxretry = 3
+bantime = 7200
