@@ -22,6 +22,27 @@ if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; 
   
   # Enable core security modules
   bitninjacli --module=WAF3 --enable 2>/dev/null && log_and_console "✓ WAF Pro enabled" || log_and_console "WAF Pro already enabled"
+  
+  # Configure WAF3 for automatic SSL (Let's Encrypt)
+  log_and_console "Configuring WAF3 for automatic SSL certificate provisioning..."
+  
+  # Wait for WAF3 config file to be created
+  sleep 1
+  
+  # Enable automatic SSL in WAF3 config
+  if [ -f /etc/bitninja/WAF3/config.ini ]; then
+    # Backup config
+    cp /etc/bitninja/WAF3/config.ini /etc/bitninja/WAF3/config.ini.backup
+    
+    # Enable auto_ssl
+    sed -i 's/^auto_ssl=0/auto_ssl=1/' /etc/bitninja/WAF3/config.ini
+    log_and_console "✓ WAF3 auto_ssl enabled in config.ini"
+    
+    # Restart WAF3 to apply configuration
+    systemctl restart bitninja-waf3 2>/dev/null && log_and_console "✓ WAF3 restarted with automatic SSL" || log_and_console "⚠ Could not restart bitninja-waf3 (will start automatically)"
+  else
+    log_and_console "⚠ WARNING: /etc/bitninja/WAF3/config.ini not found yet (may be created after first start)"
+  fi
   bitninjacli --module=MalwareScanner --enable 2>/dev/null && log_and_console "✓ Malware Scanner enabled" || log_and_console "Malware Scanner already enabled"
   bitninjacli --module=IpReputation --enable 2>/dev/null && log_and_console "✓ IP Reputation enabled" || log_and_console "IP Reputation already enabled"
   bitninjacli --module=DosDetection --enable 2>/dev/null && log_and_console "✓ DoS Detection enabled" || log_and_console "DoS Detection already enabled"
