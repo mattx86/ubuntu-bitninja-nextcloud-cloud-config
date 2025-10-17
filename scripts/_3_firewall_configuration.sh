@@ -7,6 +7,7 @@ log_and_console "=== FIREWALL CONFIGURATION ==="
 log_and_console "Configuring UFW firewall..."
 ufw --force enable && ufw default deny incoming && ufw default allow outgoing
 ufw allow "$UFW_SSH_PORT/tcp" comment 'SSH administration'
+ufw allow 80/tcp comment 'HTTP (Let'\''s Encrypt challenges)'
 ufw allow "$UFW_HTTPS_PORT/tcp" comment 'HTTPS (BitNinja WAF)'
 
 # BitNinja internal ports (localhost only - UFW allows by default)

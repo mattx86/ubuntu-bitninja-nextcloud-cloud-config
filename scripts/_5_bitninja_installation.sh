@@ -41,7 +41,8 @@ if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; 
   SERVER_IP=$(hostname -I | awk '{print $1}')
   
   # Add DNAT rule to UFW's before.rules for persistence
-  log_and_console "Adding DNAT rule to UFW configuration: port 443 → 60415 (WAF2 HTTPS)"
+  log_and_console "Adding DNAT rule: port 443 → 60415 (WAF2 SSL Terminating)"
+  log_and_console "Note: Port 80 left open for certbot standalone (automatic SSL acquisition)"
   
   # Backup UFW before.rules
   cp /etc/ufw/before.rules /etc/ufw/before.rules.backup
@@ -51,7 +52,9 @@ if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; 
     # Add DNAT rules after the *nat table section
     sed -i '/^\*nat$/a \
 :BN_WAF_REDIR - [0:0]\n\
-# BitNinja WAF2 DNAT rule - redirect port 443 to SSL Terminating port\n\
+# BitNinja WAF2 DNAT rule for HTTPS\n\
+# Port 443 → SSL Terminating (decrypts HTTPS and forwards to WAF2)\n\
+# Port 80 is left open for certbot standalone (no DNAT needed)\n\
 -A PREROUTING -p tcp -m tcp --dport 443 -j BN_WAF_REDIR\n\
 -A BN_WAF_REDIR -d '"$SERVER_IP"'/32 -p tcp -m tcp --dport 443 -j DNAT --to-destination '"127.0.0.1"':60415' /etc/ufw/before.rules
     

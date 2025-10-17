@@ -1,14 +1,14 @@
-# Ubuntu + Nextcloud + BitNinja WAF Pro Cloud-Config
+# Ubuntu + Nextcloud + BitNinja WAF 2.0 Cloud-Config
 
 Copyright (c) 2025 Matt Smith - [MIT License](LICENSE.md)
 
 ## 📋 Overview
 
-This cloud-config YAML provides a complete, production-ready installation of **Nextcloud** with **BitNinja WAF Pro** on **Ubuntu 24.04 LTS**, following official documentation from both projects.
+This cloud-config YAML provides a complete, production-ready installation of **Nextcloud** with **BitNinja WAF 2.0** on **Ubuntu 24.04 LTS**, following official documentation from both projects. Includes **automated SSL certificate acquisition** via Let's Encrypt with certbot.
 
 ### 🏗️ Architecture
 ```
-Internet → BitNinja WAF Pro (Caddy + TLS 1.3) → Apache (localhost:80) → NextCloud
+Internet → BitNinja WAF2 (HTTPS:443) → Apache (localhost:80) → NextCloud
 ```
 
 ### Stack Components
@@ -16,8 +16,8 @@ Internet → BitNinja WAF Pro (Caddy + TLS 1.3) → Apache (localhost:80) → Ne
 - **PHP Version:** 8.3 with all required + recommended modules
 - **Database:** MariaDB 10.x with utf8mb4, SSL enabled
 - **Caching:** Redis + APCu (localhost only)
-- **Security:** BitNinja WAF Pro, UFW firewall, fail2ban, IPv6 disabled
-- **SSL:** BitNinja WAF Pro handles HTTPS termination with Let's Encrypt
+- **Security:** BitNinja WAF 2.0, UFW firewall, fail2ban, IPv6 disabled
+- **SSL:** Automated Let's Encrypt certificates via certbot (auto-renewal every 60 days)
 
 ---
 
@@ -76,17 +76,18 @@ Upload to your cloud provider (Hetzner, AWS, DigitalOcean, etc.) as a cloud-conf
 ✅ All core services installed and running  
 ✅ BitNinja security features enabled  
 ✅ MariaDB security configuration applied  
-✅ Apache configured for SSL termination  
+✅ Apache configured for localhost-only operation  
+✅ SSL certificates automatically obtained via Let's Encrypt  
 ✅ System requirements verified  
-✅ Firewall configured (HTTPS, SSH, BitNinja Captcha ports)
+✅ Firewall configured (HTTP/HTTPS, SSH, BitNinja Captcha HTTPS port)
 
 **Components Configured:**
 - Apache 2.4 with PHP 8.3 (mod_php)
 - MariaDB with optimized settings
 - Redis + APCu caching
-- BitNinja security (automatically configured)
+- BitNinja WAF 2.0 with SSL Terminating module (automatically configured)
 - UFW firewall enabled
-- SSL termination configured for BitNinja
+- Let's Encrypt SSL certificates with automatic renewal
 
 **Critical Files Created:**
 - Scripts Directory: `/root/system-setup/scripts/`
@@ -152,31 +153,57 @@ exit;
 sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ user:resetpassword admin
 ```
 
-**2. Configure BitNinja (if license key was not provided)**
+**2. Verify SSL Certificate**
+```bash
+# Check if Let's Encrypt certificate was obtained
+ls -la /etc/letsencrypt/live/$DOMAIN/
+
+# Verify automatic renewal is configured
+systemctl status certbot.timer
+certbot renew --dry-run
+
+# Check BitNinja SSL Terminating is using the certificate
+bitninjacli --module=SslTerminating --status
+```
+
+**3. Configure BitNinja (if license key was not provided)**
 ```bash
 # Manual installation (if needed)
 curl https://get.bitninja.io/install.sh | sudo /bin/bash -s - --license_key=YOUR_LICENSE_KEY
 
 # Verify BitNinja is running
 systemctl status bitninja
-bitninja-cli --version
+bitninjacli --version
 
 # Login to BitNinja dashboard: https://admin.bitninja.io
-# - Configure SSL certificates and Let's Encrypt integration
 # - Review and customize protection rules as needed
 # - Monitor security events and adjust settings
 ```
 
-**3. Configure DNS**
-- Point your domain to the server IP
-- Wait for DNS propagation (can take up to 24-48 hours)
-- Test with: `dig your-domain.com`
-
 **4. Access Nextcloud**
-After SSL setup:
+After DNS propagation and SSL setup:
 - Navigate to: `https://your-domain.com`
 - Username: `admin`
 - Password: The one you set in step 1c
+
+**Note on DNS and SSL Acquisition:**
+Point your domain's A record to the server IP **before** deployment for automatic SSL setup. During deployment:
+1. DNS verification checks if your domain resolves to the server IP
+2. If DNS is correct, Let's Encrypt certificate is automatically obtained
+3. BitNinja SSL Terminating is configured to use the certificate
+4. Auto-renewal is set up via certbot's systemd timer
+
+If DNS is not configured at deployment time, the script will skip SSL acquisition and you can manually run it later:
+```bash
+# After configuring DNS, manually obtain SSL certificate
+/root/system-setup/scripts/_6_ssl_certificate.sh
+```
+
+**How It Works:**
+- Certbot binds to `SERVER_IP:80` (public IP) for HTTP-01 challenges
+- Apache continues running on `127.0.0.1:80` (localhost only) - no downtime
+- BitNinja SSL Terminating (port 60415) receives certificates automatically
+- Renewal hooks ensure BitNinja picks up renewed certificates every 60 days
 
 #### 🔧 Post-Installation Configuration
 
@@ -239,13 +266,20 @@ sudo tail -f /var/log/syslog
 
 **Next Steps Summary:**
 1. Optional: Run `/root/system-setup/scripts/_13_system_verification.sh` to verify everything
-2. Configure DNS: `your-domain.com` → server IP
-3. Set up SSL certificates in BitNinja dashboard
-4. Change default passwords (see security steps above)
+2. Verify SSL certificate: `systemctl status certbot.timer` and `certbot renew --dry-run`
+3. Change default passwords (see security steps above)
+4. Access Nextcloud: `https://your-domain.com`
+
+**SSL Certificate Management:**
+- **Automatic Renewal:** Certbot's systemd timer runs twice daily and renews certificates within 30 days of expiration
+- **Check Timer:** `systemctl list-timers certbot.timer`
+- **Manual Renewal Test:** `certbot renew --dry-run`
+- **Force Recollect (BitNinja):** `bitninjacli --module=SslTerminating --force-recollect && bitninjacli --module=SslTerminating --restart`
 
 **Documentation Resources:**
 - [Nextcloud Admin Manual](https://docs.nextcloud.com/server/latest/admin_manual/)
-- [BitNinja WAF Pro Documentation](https://doc.bitninja.io/docs/Modules/waf-pro)
+- [BitNinja WAF 2.0 Documentation](https://doc.bitninja.io/docs/Modules/waf)
+- [Certbot Documentation](https://eff-certbot.readthedocs.io/)
 
 ---
 
@@ -268,11 +302,11 @@ The cloud-config includes optimized memory settings for different system sizes:
 
 To use 2GB settings, uncomment the 2GB configuration lines in the config section and comment out the 1GB settings.
 
-### ✅ BitNinja WAF Pro (WAF3)
-- **Modern Architecture:** Caddy-based with TLS 1.3 support
-- **Built-in SSL Termination:** No separate SSL module needed
-- **Enhanced Security:** Advanced threat detection and protection
-- **Automatic Configuration:** All security features enabled automatically
+### ✅ BitNinja WAF 2.0 with SSL Terminating
+- **WAF Protection:** Web application firewall with advanced threat detection
+- **SSL Terminating Module:** Handles HTTPS traffic and forwards to Apache
+- **Let's Encrypt Integration:** Automatic SSL certificate acquisition and renewal
+- **Automatic Configuration:** All security features enabled during deployment
 
 ### ✅ Nextcloud (Official Docs Compliant)
 - **Complete PHP Stack:** All required and recommended PHP 8.3 modules
@@ -341,15 +375,19 @@ All configuration files are downloaded from GitHub during deployment:
    sudo mysql_secure_installation
    ```
 
-### Verify BitNinja WAF Pro
+### Verify BitNinja WAF 2.0
 
 ```bash
 # Check if installed and running
 systemctl status bitninja
-bitninja-cli --version
+bitninjacli --version
 
-# Check WAF Pro status
-bitninja-cli --module=WAF3 --status
+# Check WAF 2.0 and SSL Terminating status
+bitninjacli --module=WAF --status
+bitninjacli --module=SslTerminating --status
+
+# Check if SSL certificates are loaded
+bitninjacli --module=SslTerminating --force-recollect
 
 # Configure in dashboard
 # Visit: https://admin.bitninja.io
@@ -393,16 +431,19 @@ sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ config:list system
 sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ config:list system trusted_domains
 ```
 
-### Check BitNinja WAF Pro
+### Check BitNinja WAF 2.0
 ```bash
 # Status
-bitninja-cli --status
+bitninjacli --status
 
-# WAF Pro status
-bitninja-cli --module=WAF3 --status
+# WAF 2.0 status
+bitninjacli --module=WAF --status
+
+# SSL Terminating status
+bitninjacli --module=SslTerminating --status
 
 # View incidents (blocked attacks)
-bitninja-cli --incidents
+bitninjacli --incidents
 
 # Dashboard
 # https://admin.bitninja.io
@@ -414,7 +455,23 @@ bitninja-cli --incidents
 sudo ufw status
 
 # Check listening ports
-sudo netstat -tlnp | grep -E ':(22|80|443|60412|60413)'
+sudo ss -tlnp | grep -E ':(22|80|443|60413)'
+```
+
+### Check SSL Certificates
+```bash
+# Check certbot timer status
+systemctl status certbot.timer
+systemctl list-timers certbot.timer
+
+# List Let's Encrypt certificates
+certbot certificates
+
+# Test renewal (dry run - no actual renewal)
+certbot renew --dry-run
+
+# Check certificate expiration
+openssl x509 -in /etc/letsencrypt/live/$DOMAIN/cert.pem -noout -enddate
 ```
 
 ### View Logs
@@ -425,9 +482,11 @@ sudo tail -f $NEXTCLOUD_WEB_DIR/data/nextcloud.log
 # Apache
 sudo tail -f /var/log/apache2/nextcloud-error.log
 
-# BitNinja WAF Pro
-sudo tail -f /var/log/bitninja-waf3/current.log
-sudo tail -f /var/log/bitninja-waf3/audit.log
+# BitNinja WAF 2.0
+sudo tail -f /var/log/bitninja/waf.log
+
+# Certbot (renewal logs)
+sudo tail -f /var/log/letsencrypt/letsencrypt.log
 
 # System check
 sudo tail -f $LOGS_DIR/deployment.log
@@ -442,25 +501,39 @@ sudo tail -f $LOGS_DIR/deployment.log
 ### Can't Access Nextcloud
 
 1. Check Apache: `systemctl status apache2`
-2. Check firewall: `sudo ufw status`
-3. Test config: `apache2ctl -t`
-4. Check DNS: `dig your-domain.com`
-5. Verify Apache is bound to localhost: `sudo netstat -tlnp | grep :80`
+2. Check BitNinja: `systemctl status bitninja`
+3. Check SSL certificate: `certbot certificates`
+4. Check firewall: `sudo ufw status`
+5. Test Apache config: `apache2ctl -t`
+6. Check DNS: `dig your-domain.com`
+7. Verify Apache is bound to localhost: `sudo ss -tlnp | grep :80`
+8. Verify BitNinja SSL Terminating: `bitninjacli --module=SslTerminating --status`
 
 ### Database Connection Errors
 
 1. Check MariaDB: `systemctl status mariadb`
 2. Test connection: `mysql -u nextcloud -p`
 3. Verify password in: `$NEXTCLOUD_WEB_DIR/config/config.php`
-4. Check MariaDB is bound to localhost: `sudo netstat -tlnp | grep :3306`
+4. Check MariaDB is bound to localhost: `sudo ss -tlnp | grep :3306`
 
-### BitNinja WAF Pro Not Working
+### SSL Certificate Issues
 
-1. Check if installed: `which bitninja-cli`
-2. Install if needed: `/root/system-setup/scripts/install-bitninja.sh`
-3. Check service: `systemctl status bitninja`
-4. Verify license key: `bitninja-config --get license_key`
-5. Check WAF Pro status: `bitninja-cli --module=WAF3 --status`
+1. Check if certificate exists: `certbot certificates`
+2. Check DNS is correct: `dig your-domain.com`
+3. Check certbot timer: `systemctl status certbot.timer`
+4. Test renewal: `certbot renew --dry-run`
+5. Check certbot logs: `tail -f /var/log/letsencrypt/letsencrypt.log`
+6. Manually rerun: `/root/system-setup/scripts/_6_ssl_certificate.sh`
+7. Force BitNinja recollect: `bitninjacli --module=SslTerminating --force-recollect && bitninjacli --module=SslTerminating --restart`
+
+### BitNinja WAF 2.0 Not Working
+
+1. Check if installed: `which bitninjacli`
+2. Check service: `systemctl status bitninja`
+3. Verify license key: `bitninjacli --get-license-key`
+4. Check WAF status: `bitninjacli --module=WAF --status`
+5. Check SSL Terminating: `bitninjacli --module=SslTerminating --status`
+6. Rerun installation: `/root/system-setup/scripts/_5_bitninja_installation.sh`
 
 ### IPv6 Issues
 
@@ -532,13 +605,16 @@ systemctl status apache2 mariadb redis-server bitninja fail2ban
 htop
 
 # Check network connections
-sudo netstat -tlnp
+sudo ss -tlnp
 
 # View system logs
 sudo journalctl -f
 
 # Check BitNinja logs
-sudo tail -f /var/log/bitninja-waf3/current.log
+sudo tail -f /var/log/bitninja/waf.log
+
+# Check certbot timer
+systemctl list-timers certbot.timer
 ```
 
 #### Nextcloud Management
@@ -594,16 +670,17 @@ GitHub Repository Structure:
 │   ├── _3_firewall_configuration.sh
 │   ├── _4_security_hardening.sh
 │   ├── _5_bitninja_installation.sh
-│   ├── _6_password_generation.sh
-│   ├── _7_mariadb_configuration.sh
-│   ├── _8_redis_configuration.sh
-│   ├── _9_apache_configuration.sh
-│   ├── _10_php_configuration.sh
-│   ├── _11_nextcloud_installation.sh
-│   ├── _12_system_optimization.sh
-│   ├── _13_system_verification.sh
-│   ├── _14_service_security_verification.sh
-│   └── _15_cleanup.sh
+│   ├── _6_ssl_certificate.sh          # Automated Let's Encrypt certificate acquisition
+│   ├── _7_password_generation.sh
+│   ├── _8_mariadb_configuration.sh
+│   ├── _9_redis_configuration.sh
+│   ├── _10_apache_configuration.sh
+│   ├── _11_php_configuration.sh
+│   ├── _12_nextcloud_installation.sh
+│   ├── _13_system_optimization.sh
+│   ├── _14_system_verification.sh
+│   ├── _15_service_security_verification.sh
+│   └── _16_cleanup.sh
 ├── conf/             # All configuration files
 │   ├── 50ubuntu-unattended-upgrades
 │   ├── fail2ban-bitninja-captcha.conf
@@ -619,16 +696,18 @@ GitHub Repository Structure:
 
 ### Firewall Rules
 - **SSH:** Port 22 (TCP)
-- **HTTPS:** Port 443 (TCP) - BitNinja WAF Pro
-- **BitNinja Captcha:** Ports 60412, 60413 (TCP)
+- **HTTP:** Port 80 (TCP) - Let's Encrypt HTTP-01 challenges (certbot standalone)
+- **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 SSL Terminating (DNAT to 60415)
+- **BitNinja Captcha:** Port 60413 (TCP) - HTTPS Captcha only
 
 ### Security Features
 - **IPv6:** Disabled system-wide
-- **Services:** Bound to localhost only
-- **BitNinja WAF Pro:** TLS 1.3, built-in SSL termination
+- **Services:** Bound to localhost only (Apache, MariaDB, Redis)
+- **BitNinja WAF 2.0:** Web application firewall with SSL Terminating module
+- **SSL Certificates:** Automated Let's Encrypt via certbot (auto-renewal every 60 days)
 - **fail2ban:** SSH, Apache, NextCloud, BitNinja protection
-- **UFW:** Minimal port exposure
-- **MariaDB:** SSL enabled, root restricted
+- **UFW:** Minimal port exposure (SSH, HTTP, HTTPS, BitNinja Captcha HTTPS only)
+- **MariaDB:** SSL enabled, root restricted to localhost
 - **Redis:** Localhost only, dangerous commands disabled
 
 ---
@@ -641,10 +720,16 @@ GitHub Repository Structure:
 - [GitHub Issues](https://github.com/nextcloud/server/issues)
 
 ### BitNinja
-- [WAF Pro Documentation](https://doc.bitninja.io/docs/Modules/waf-pro)
+- [WAF 2.0 Documentation](https://doc.bitninja.io/docs/Modules/waf)
+- [SSL Terminating Module](https://doc.bitninja.io/docs/Modules/ssl-terminating)
 - [Installation Guide](https://doc.bitninja.io/docs/Installation/Install_BitNinja)
 - [Dashboard](https://admin.bitninja.io)
 - Email: support@bitninja.com
+
+### Certbot / Let's Encrypt
+- [Certbot Documentation](https://eff-certbot.readthedocs.io/)
+- [User Guide](https://eff-certbot.readthedocs.io/en/stable/using.html)
+- [Let's Encrypt Community](https://community.letsencrypt.org/)
 
 ### Ubuntu
 - [Ubuntu Server Guide](https://ubuntu.com/server/docs)
@@ -677,8 +762,9 @@ GitHub Repository Structure:
 2. **Server Tuning**
    - [Performance Optimization](https://docs.nextcloud.com/server/latest/admin_manual/installation/server_tuning.html)
 
-3. **BitNinja WAF Pro Features**
-   - [WAF Pro Documentation](https://doc.bitninja.io/docs/Modules/waf-pro)
+3. **BitNinja WAF 2.0 Features**
+   - [WAF 2.0 Documentation](https://doc.bitninja.io/docs/Modules/waf)
+   - [SSL Terminating Module](https://doc.bitninja.io/docs/Modules/ssl-terminating)
    - [Protection Modules](https://doc.bitninja.io)
 
 4. **Ubuntu Security**
@@ -702,7 +788,8 @@ If you encounter issues:
 3. **Check logs:**
    - Nextcloud: `$NEXTCLOUD_WEB_DIR/data/nextcloud.log`
    - Apache: `/var/log/apache2/nextcloud-error.log`
-   - BitNinja: `/var/log/bitninja-waf3/current.log`
+   - BitNinja: `/var/log/bitninja/waf.log`
+   - Certbot: `/var/log/letsencrypt/letsencrypt.log`
    - System: `/var/log/syslog`
 
 4. **Community support:**
@@ -720,12 +807,13 @@ Found an issue or improvement? Contributions welcome!
 
 **Built with ❤️ following official documentation**
 
-**Compatible with:** Ubuntu 24.04 LTS, Nextcloud Latest, PHP 8.3, MariaDB 10.x, BitNinja WAF Pro
+**Compatible with:** Ubuntu 24.04 LTS, Nextcloud Latest, PHP 8.3, MariaDB 10.x, BitNinja WAF 2.0
 
-**Last Updated:** January 2025
+**Last Updated:** October 2025
 
 **Key Features:**
-- 🔒 **Production-Ready Security:** BitNinja WAF Pro with TLS 1.3
+- 🔒 **Production-Ready Security:** BitNinja WAF 2.0 with SSL Terminating
+- 🔐 **Automated SSL:** Let's Encrypt certificates via certbot with auto-renewal
 - ⚡ **High Performance:** Redis caching, MariaDB optimization, OPcache
 - 🛡️ **Hardened System:** IPv6 disabled, localhost-only services
 - 📦 **Complete Stack:** All required components and modules
