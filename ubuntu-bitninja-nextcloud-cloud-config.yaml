@@ -5,23 +5,23 @@
 # MIT License - See LICENSE.md for full license text
 #
 # ===================================================================
-# Cloud Config for Ubuntu 24.04 with BitNinja WAF Pro and NextCloud
+# Cloud Config for Ubuntu 24.04 with BitNinja WAF 2.0 and NextCloud
 # ===================================================================
 # 
 # This cloud-init configuration deploys a production-ready NextCloud instance
-# with BitNinja WAF Pro security on Ubuntu 24.04 LTS, following official documentation:
+# with BitNinja WAF 2.0 security on Ubuntu 24.04 LTS, following official documentation:
 # https://docs.nextcloud.com/server/latest/admin_manual/installation/source_installation.html
 #
 # ARCHITECTURE:
-# BitNinja WAF Pro (HTTPS:443) → Apache (localhost:80) → NextCloud
+# BitNinja WAF2 (HTTPS:443) → Apache (localhost:80) → NextCloud
 #
 # COMPONENTS:
 # - Web Server: Apache 2.4 with mod_php (localhost only)
 # - PHP: 8.3 with all required/recommended modules + security hardening
 # - Database: MariaDB (utf8mb4, localhost only, SSL enabled)
 # - Caching: Redis + APCu (localhost only)
-# - Security: BitNinja WAF Pro, UFW firewall, fail2ban, IPv6 disabled
-# - SSL: BitNinja WAF Pro handles HTTPS termination with Let's Encrypt
+# - Security: BitNinja WAF 2.0, UFW firewall, fail2ban, IPv6 disabled
+# - SSL: BitNinja SSL Terminating module handles HTTPS with automatic certificates
 #
 # SYSTEM REQUIREMENTS:
 # - Ubuntu 24.04 LTS server
