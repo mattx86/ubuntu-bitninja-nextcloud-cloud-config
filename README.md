@@ -196,7 +196,7 @@ Point your domain's A record to the server IP **before** deployment for automati
 If DNS is not configured at deployment time, the script will skip SSL acquisition and you can manually run it later:
 ```bash
 # After configuring DNS, manually obtain SSL certificate
-/root/system-setup/scripts/_6_ssl_certificate.sh
+/root/system-setup/scripts/_5_ssl_certificate.sh
 ```
 
 **How It Works:**
@@ -523,7 +523,7 @@ sudo tail -f $LOGS_DIR/deployment.log
 3. Check certbot timer: `systemctl status certbot.timer`
 4. Test renewal: `certbot renew --dry-run`
 5. Check certbot logs: `tail -f /var/log/letsencrypt/letsencrypt.log`
-6. Manually rerun: `/root/system-setup/scripts/_6_ssl_certificate.sh`
+6. Manually rerun: `/root/system-setup/scripts/_5_ssl_certificate.sh`
 7. Force BitNinja recollect: `bitninjacli --module=SslTerminating --force-recollect && bitninjacli --module=SslTerminating --restart`
 
 ### BitNinja WAF 2.0 Not Working
@@ -533,7 +533,7 @@ sudo tail -f $LOGS_DIR/deployment.log
 3. Verify license key: `bitninjacli --get-license-key`
 4. Check WAF status: `bitninjacli --module=WAF --status`
 5. Check SSL Terminating: `bitninjacli --module=SslTerminating --status`
-6. Rerun installation: `/root/system-setup/scripts/_5_bitninja_installation.sh`
+6. Rerun installation: `/root/system-setup/scripts/_6_bitninja_installation.sh`
 
 ### IPv6 Issues
 
@@ -669,8 +669,8 @@ GitHub Repository Structure:
 │   ├── _2_system_initialization.sh
 │   ├── _3_firewall_configuration.sh
 │   ├── _4_security_hardening.sh
-│   ├── _5_bitninja_installation.sh
-│   ├── _6_ssl_certificate.sh          # Automated Let's Encrypt certificate acquisition
+│   ├── _5_ssl_certificate.sh          # Automated Let's Encrypt certificate acquisition
+│   ├── _6_bitninja_installation.sh
 │   ├── _7_password_generation.sh
 │   ├── _8_mariadb_configuration.sh
 │   ├── _9_redis_configuration.sh
