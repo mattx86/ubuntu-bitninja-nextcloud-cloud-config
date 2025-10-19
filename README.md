@@ -203,7 +203,7 @@ If DNS is not configured at deployment time, the script will skip SSL acquisitio
 - Apache is configured to bind to `127.0.0.1:80` only (localhost)
 - Certbot binds to `SERVER_IP:80` (public IP) for HTTP-01 challenges - no conflict
 - No Apache downtime needed during certificate acquisition
-- BitNinja SSL Terminating (port 60415) receives certificates automatically
+- BitNinja SSL Terminating (port 60414) receives certificates automatically
 - Renewal hooks ensure BitNinja picks up renewed certificates every 60 days
 
 #### 🔧 Post-Installation Configuration
@@ -534,7 +534,28 @@ sudo tail -f $LOGS_DIR/deployment.log
 3. Verify license key: `bitninjacli --get-license-key`
 4. Check WAF status: `bitninjacli --module=WAF --status`
 5. Check SSL Terminating: `bitninjacli --module=SslTerminating --status`
-6. Rerun installation: `/root/system-setup/scripts/_9_bitninja_installation.sh`
+6. Check WAFManager status: `bitninjacli --module=WAFManager --status` (look for `"isSsl": true`)
+7. Check if ConfigParser detected certificates:
+   ```bash
+   cat /var/lib/bitninja/ConfigParser/getCerts-report.json
+   cat /opt/bitninja-ssl-termination/etc/haproxy/cert-list.lst
+   ```
+8. If `"isSsl": false`, manually add certificate and restart BitNinja:
+   ```bash
+   # Replace your-domain.com with your actual domain
+   bitninjacli --module=SslTerminating --add-cert \
+     --domain=your-domain.com \
+     --certFile=/etc/letsencrypt/live/your-domain.com/fullchain.pem \
+     --keyFile=/etc/letsencrypt/live/your-domain.com/privkey.pem
+   
+   bitninjacli --module=SslTerminating --force-recollect
+   systemctl restart bitninja
+   sleep 10
+   
+   # Verify SSL is now enabled
+   bitninjacli --module=WAFManager --status | grep isSsl
+   ```
+9. Rerun installation: `/root/system-setup/scripts/_9_bitninja_installation.sh`
 
 ### IPv6 Issues
 
@@ -698,7 +719,7 @@ GitHub Repository Structure:
 ### Firewall Rules
 - **SSH:** Port 22 (TCP)
 - **HTTP:** Port 80 (TCP) - Let's Encrypt HTTP-01 challenges (certbot standalone)
-- **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 SSL Terminating (DNAT to 60415)
+- **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 SSL Terminating (DNAT to 60414)
 - **BitNinja Captcha:** Port 60413 (TCP) - HTTPS Captcha only
 
 ### Security Features

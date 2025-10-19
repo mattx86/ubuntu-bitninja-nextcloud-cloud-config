@@ -12,8 +12,9 @@ log_and_console "Configuring Apache modules and localhost binding..."
 a2dismod mpm_event mpm_worker 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || log_and_console "✓ mpm_prefork already enabled"
 
-# Enable required modules, disable status module, disable default site
-a2enmod rewrite headers env dir mime setenvif remoteip && a2dismod status && a2dissite 000-default.conf
+# Enable required modules (including SSL for ConfigParser), disable status module, disable default site
+a2enmod rewrite headers env dir mime setenvif remoteip ssl && a2dismod status && a2dissite 000-default.conf
+log_and_console "✓ Apache SSL module enabled (for BitNinja ConfigParser certificate detection)"
 
 # Configure Apache for localhost-only binding on port 80 (BitNinja WAF handles external HTTPS)
 sed -i 's/^Listen 80$/Listen 127.0.0.1:80/' /etc/apache2/ports.conf
