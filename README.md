@@ -196,13 +196,13 @@ Point your domain's A record to the server IP **before** deployment for automati
 If DNS is not configured at deployment time, the script will skip SSL acquisition and you can manually run it later:
 ```bash
 # After configuring DNS, manually obtain SSL certificate
-/root/system-setup/scripts/_5_ssl_certificate.sh
+/root/system-setup/scripts/_7_ssl_certificate.sh
 ```
 
 **How It Works:**
-- Apache2 is temporarily stopped to free port 80
-- Certbot binds to `SERVER_IP:80` (public IP) for HTTP-01 challenges
-- Apache2 is restarted after certificate acquisition (brief downtime during initial setup only)
+- Apache is configured to bind to `127.0.0.1:80` only (localhost)
+- Certbot binds to `SERVER_IP:80` (public IP) for HTTP-01 challenges - no conflict
+- No Apache downtime needed during certificate acquisition
 - BitNinja SSL Terminating (port 60415) receives certificates automatically
 - Renewal hooks ensure BitNinja picks up renewed certificates every 60 days
 
@@ -524,7 +524,7 @@ sudo tail -f $LOGS_DIR/deployment.log
 3. Check certbot timer: `systemctl status certbot.timer`
 4. Test renewal: `certbot renew --dry-run`
 5. Check certbot logs: `tail -f /var/log/letsencrypt/letsencrypt.log`
-6. Manually rerun: `/root/system-setup/scripts/_5_ssl_certificate.sh`
+6. Manually rerun: `/root/system-setup/scripts/_7_ssl_certificate.sh`
 7. Force BitNinja recollect: `bitninjacli --module=SslTerminating --force-recollect && bitninjacli --module=SslTerminating --restart`
 
 ### BitNinja WAF 2.0 Not Working
@@ -534,7 +534,7 @@ sudo tail -f $LOGS_DIR/deployment.log
 3. Verify license key: `bitninjacli --get-license-key`
 4. Check WAF status: `bitninjacli --module=WAF --status`
 5. Check SSL Terminating: `bitninjacli --module=SslTerminating --status`
-6. Rerun installation: `/root/system-setup/scripts/_6_bitninja_installation.sh`
+6. Rerun installation: `/root/system-setup/scripts/_9_bitninja_installation.sh`
 
 ### IPv6 Issues
 
@@ -670,13 +670,13 @@ GitHub Repository Structure:
 │   ├── _2_system_initialization.sh
 │   ├── _3_firewall_configuration.sh
 │   ├── _4_security_hardening.sh
-│   ├── _5_ssl_certificate.sh          # Automated Let's Encrypt certificate acquisition
-│   ├── _6_bitninja_installation.sh
-│   ├── _7_password_generation.sh
-│   ├── _8_mariadb_configuration.sh
-│   ├── _9_redis_configuration.sh
-│   ├── _10_apache_configuration.sh
-│   ├── _11_php_configuration.sh
+│   ├── _5_php_configuration.sh
+│   ├── _6_apache_configuration.sh
+│   ├── _7_ssl_certificate.sh          # Automated Let's Encrypt certificate acquisition
+│   ├── _8_redis_configuration.sh
+│   ├── _9_bitninja_installation.sh
+│   ├── _10_password_generation.sh
+│   ├── _11_mariadb_configuration.sh
 │   ├── _12_nextcloud_installation.sh
 │   ├── _13_system_optimization.sh
 │   ├── _14_system_verification.sh

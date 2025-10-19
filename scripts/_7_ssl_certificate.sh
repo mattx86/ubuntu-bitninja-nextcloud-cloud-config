@@ -19,7 +19,7 @@ if [ -z "$RESOLVED_IP" ]; then
   log_and_console "Please configure DNS A record: $DOMAIN → $SERVER_IP"
   log_and_console "Skipping SSL certificate acquisition"
   log_and_console "After DNS is configured, run:"
-  log_and_console "  /root/system-setup/scripts/_5_ssl_certificate.sh"
+  log_and_console "  /root/system-setup/scripts/_7_ssl_certificate.sh"
   exit 0
 fi
 
@@ -51,11 +51,8 @@ if ! command -v certbot &> /dev/null; then
   log_and_console "✓ certbot installed"
 fi
 
-# Stop Apache2 to free port 80 for certbot standalone
-log_and_console "Stopping Apache2 to free port 80 for certbot..."
-systemctl stop apache2 || log_and_console "⚠ Apache2 not running or failed to stop"
-
 # Obtain Let's Encrypt certificate
+# Note: Apache is already configured to bind to 127.0.0.1:80 only, so certbot can bind to SERVER_IP:80
 log_and_console "Requesting Let's Encrypt certificate for $DOMAIN..."
 log_and_console "This may take 1-2 minutes..."
 
@@ -68,10 +65,6 @@ certbot certonly --standalone \
   --preferred-challenges http-01
 
 CERTBOT_EXIT_CODE=$?
-
-# Start Apache2 again
-log_and_console "Starting Apache2..."
-systemctl start apache2 || log_and_console "⚠ WARNING: Failed to start Apache2"
 
 # Check if certificate was obtained successfully
 if [ $CERTBOT_EXIT_CODE -eq 0 ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
@@ -109,7 +102,7 @@ else
   log_and_console "  3. Firewall (UFW) allows port 80"
   log_and_console ""
   log_and_console "To retry manually:"
-  log_and_console "  /root/system-setup/scripts/_5_ssl_certificate.sh"
+  log_and_console "  /root/system-setup/scripts/_7_ssl_certificate.sh"
   exit 1
 fi
 
