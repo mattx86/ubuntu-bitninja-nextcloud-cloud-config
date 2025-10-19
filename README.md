@@ -200,8 +200,9 @@ If DNS is not configured at deployment time, the script will skip SSL acquisitio
 ```
 
 **How It Works:**
+- Apache2 is temporarily stopped to free port 80
 - Certbot binds to `SERVER_IP:80` (public IP) for HTTP-01 challenges
-- Apache continues running on `127.0.0.1:80` (localhost only) - no downtime
+- Apache2 is restarted after certificate acquisition (brief downtime during initial setup only)
 - BitNinja SSL Terminating (port 60415) receives certificates automatically
 - Renewal hooks ensure BitNinja picks up renewed certificates every 60 days
 
