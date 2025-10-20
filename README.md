@@ -307,9 +307,11 @@ To use 2GB settings, uncomment the 2GB configuration lines in the config section
 - **WAF Protection:** Web application firewall with advanced threat detection
 - **SSL Terminating Module:** Handles HTTPS traffic and forwards to Apache
 - **Let's Encrypt Integration:** Automatic SSL certificate acquisition and renewal
-- **Enabled Modules:** System, ConfigParser, DataProvider, SslTerminating, WAFManager, MalwareDetection, DosDetection, SenseLog, DefenseRobot
-- **Disabled Modules:** IpFilter (firewall management), AntiFlood, AuditManager, CaptchaFtp, CaptchaHttp, CaptchaSmtp, MalwareScanner, OutboundHoneypot, Patcher, PortHoneypot, ProxyFilter, SandboxScanner, SenseWebHoneypot, Shogun, SiteProtection, SpamDetection, SqlScanner, WAF3, ProcessAnalysis
+- **Module Configuration:** All modules enabled by default except those in `disabledModules` array
+- **Enabled Modules:** System, ConfigParser, DataProvider, SslTerminating, WAFManager, MalwareDetection, DosDetection, SenseLog, DefenseRobot (enabled by not being in disabledModules)
+- **Disabled Modules (via config.php):** IpFilter, AntiFlood, AuditManager, CaptchaFtp, CaptchaHttp, CaptchaSmtp, MalwareScanner, OutboundHoneypot, Patcher, PortHoneypot, ProxyFilter, SandboxScanner, SenseWebHoneypot, Shogun, SiteProtection, SpamDetection, SqlScanner, TalkBack, WAF3, ProcessAnalysis
 - **Firewall Management:** Completely disabled - UFW manages all firewall rules including DNAT
+- **Automatic Cleanup:** Systemd service (`bitninja-remove-firewall-rules.service`) removes BitNinja iptables rules on every BitNinja restart
 
 ### ✅ Nextcloud (Official Docs Compliant)
 - **Complete PHP Stack:** All required and recommended PHP 8.3 modules

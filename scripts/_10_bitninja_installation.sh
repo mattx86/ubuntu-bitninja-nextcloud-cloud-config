@@ -20,42 +20,10 @@ export NEEDRESTART_SUSPEND=1
 if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; then
   log_and_console "Configuring BitNinja security features..."
   
-  # Enable mandatory/required modules
-  log_and_console "Enabling required and core security modules..."
-  bitninjacli --module=System --enable 2>/dev/null && log_and_console "✓ System enabled (mandatory)" || log_and_console "System already enabled"
-  bitninjacli --module=ConfigParser --enable 2>/dev/null && log_and_console "✓ ConfigParser enabled (required for SSL cert detection)" || log_and_console "ConfigParser already enabled"
-  bitninjacli --module=DataProvider --enable 2>/dev/null && log_and_console "✓ DataProvider enabled (required)" || log_and_console "DataProvider already enabled"
-  bitninjacli --module=SslTerminating --enable 2>/dev/null && log_and_console "✓ SSL Terminating enabled" || log_and_console "SSL Terminating already enabled"
-  bitninjacli --module=WAFManager --enable 2>/dev/null && log_and_console "✓ WAF 2.0 enabled" || log_and_console "WAF 2.0 already enabled"
-  
-  # Enable additional security modules
-  log_and_console "Enabling additional security modules..."
-  bitninjacli --module=MalwareDetection --enable 2>/dev/null && log_and_console "✓ Malware Detection enabled" || log_and_console "Malware Detection already enabled"
-  bitninjacli --module=DosDetection --enable 2>/dev/null && log_and_console "✓ DoS Detection enabled" || log_and_console "DoS Detection already enabled"
-  bitninjacli --module=SenseLog --enable 2>/dev/null && log_and_console "✓ SenseLog enabled" || log_and_console "SenseLog already enabled"
-  bitninjacli --module=DefenseRobot --enable 2>/dev/null && log_and_console "✓ Defense Robot enabled" || log_and_console "Defense Robot already enabled"
-  
-  # Disable all unused modules to prevent unwanted behavior
-  log_and_console "Disabling unused modules..."
-  bitninjacli --module=IpFilter --disable 2>/dev/null && log_and_console "✓ IpFilter disabled (no firewall management)" || log_and_console "IpFilter already disabled"
-  bitninjacli --module=AntiFlood --disable 2>/dev/null && log_and_console "✓ AntiFlood disabled" || log_and_console "AntiFlood already disabled"
-  bitninjacli --module=AuditManager --disable 2>/dev/null && log_and_console "✓ AuditManager disabled" || log_and_console "AuditManager already disabled"
-  bitninjacli --module=CaptchaFtp --disable 2>/dev/null && log_and_console "✓ CaptchaFtp disabled" || log_and_console "CaptchaFtp already disabled"
-  bitninjacli --module=CaptchaHttp --disable 2>/dev/null && log_and_console "✓ CaptchaHttp disabled" || log_and_console "CaptchaHttp already disabled"
-  bitninjacli --module=CaptchaSmtp --disable 2>/dev/null && log_and_console "✓ CaptchaSmtp disabled" || log_and_console "CaptchaSmtp already disabled"
-  bitninjacli --module=MalwareScanner --disable 2>/dev/null && log_and_console "✓ MalwareScanner disabled (using MalwareDetection)" || log_and_console "MalwareScanner already disabled"
-  bitninjacli --module=OutboundHoneypot --disable 2>/dev/null && log_and_console "✓ OutboundHoneypot disabled" || log_and_console "OutboundHoneypot already disabled"
-  bitninjacli --module=Patcher --disable 2>/dev/null && log_and_console "✓ Patcher disabled" || log_and_console "Patcher already disabled"
-  bitninjacli --module=PortHoneypot --disable 2>/dev/null && log_and_console "✓ PortHoneypot disabled" || log_and_console "PortHoneypot already disabled"
-  bitninjacli --module=ProxyFilter --disable 2>/dev/null && log_and_console "✓ ProxyFilter disabled" || log_and_console "ProxyFilter already disabled"
-  bitninjacli --module=SandboxScanner --disable 2>/dev/null && log_and_console "✓ SandboxScanner disabled" || log_and_console "SandboxScanner already disabled"
-  bitninjacli --module=SenseWebHoneypot --disable 2>/dev/null && log_and_console "✓ SenseWebHoneypot disabled" || log_and_console "SenseWebHoneypot already disabled"
-  bitninjacli --module=Shogun --disable 2>/dev/null && log_and_console "✓ Shogun disabled" || log_and_console "Shogun already disabled"
-  bitninjacli --module=SiteProtection --disable 2>/dev/null && log_and_console "✓ SiteProtection disabled" || log_and_console "SiteProtection already disabled"
-  bitninjacli --module=SpamDetection --disable 2>/dev/null && log_and_console "✓ SpamDetection disabled" || log_and_console "SpamDetection already disabled"
-  bitninjacli --module=SqlScanner --disable 2>/dev/null && log_and_console "✓ SqlScanner disabled" || log_and_console "SqlScanner already disabled"
-  bitninjacli --module=WAF3 --disable 2>/dev/null && log_and_console "✓ WAF3 disabled (using WAFManager)" || log_and_console "WAF3 already disabled"
-  bitninjacli --module=ProcessAnalysis --disable 2>/dev/null && log_and_console "✓ ProcessAnalysis disabled" || log_and_console "ProcessAnalysis already disabled"
+  # Note: BitNinja modules are enabled by default unless listed in disabledModules
+  # We only need to configure the disabledModules array in config.php
+  # CLI --enable/--disable commands are runtime-only and don't persist
+  log_and_console "BitNinja module configuration will be set via config.php..."
   
   # Configure automatic SSL certificate collection
   log_and_console "Configuring automatic SSL certificate management..."
@@ -86,6 +54,80 @@ if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; 
     log_and_console "⚠ No SSL certificates found yet - BitNinja will use HTTP mode"
     log_and_console "After obtaining SSL certificates, run:"
     log_and_console "  systemctl restart bitninja"
+  fi
+  
+  # Disable unused modules via config.php
+  log_and_console "Configuring disabled modules in /etc/bitninja/config.php..."
+  if [ -f /etc/bitninja/config.php ]; then
+    # Backup original config
+    cp /etc/bitninja/config.php /etc/bitninja/config.php.backup
+    
+    # Create new config with our disabled modules
+    cat > /etc/bitninja/config.php <<'EOFCONFIG'
+<?php
+/*
+ * BitNinja user configuration file.
+ * Managed by ubuntu-bitninja-nextcloud-cloud-config
+ */
+return array(
+    'general' => array(
+        'api_url' => 'https://api.bitninja.io',
+        'api2_url' => 'https://api.bitninja.io',
+        'disabledModules' => array(
+            // Core modules (DO NOT DISABLE - required for functionality)
+            // 'System',
+            // 'DataProvider',
+            // 'ConfigParser',
+            
+            // Firewall management (DISABLED - UFW manages firewall)
+            'IpFilter',
+            
+            // Modules we're using (DO NOT DISABLE)
+            // 'SslTerminating',
+            // 'WAFManager',
+            // 'MalwareDetection',
+            // 'DosDetection',
+            // 'SenseLog',
+            // 'DefenseRobot',
+            
+            // Unused modules (DISABLED)
+            'AntiFlood',
+            'AuditManager',
+            'CaptchaFtp',
+            'CaptchaHttp',
+            'CaptchaSmtp',
+            'MalwareScanner',
+            'OutboundHoneypot',
+            'Patcher',
+            'PortHoneypot',
+            'ProxyFilter',
+            'SandboxScanner',
+            'SenseWebHoneypot',
+            'Shogun',
+            'SiteProtection',
+            'SpamDetection',
+            'SqlScanner',
+            'TalkBack',
+            'WAF3',
+            'ProcessAnalysis',
+        )
+    ),
+);
+EOFCONFIG
+    
+    chmod 600 /etc/bitninja/config.php
+    chown root:root /etc/bitninja/config.php
+    log_and_console "✓ BitNinja config.php updated with disabled modules"
+    
+    # Restart BitNinja to apply config changes
+    log_and_console "Restarting BitNinja to apply module configuration..."
+    systemctl restart bitninja
+    sleep 5
+    
+    # Sync configuration to cloud
+    bitninjacli --syncconfigs 2>/dev/null && log_and_console "✓ Config synced to BitNinja cloud" || log_and_console "Config sync skipped"
+  else
+    log_and_console "⚠ WARNING: /etc/bitninja/config.php not found"
   fi
   
   # Configure manual DNAT rules via UFW (BitNinja firewall management disabled)
