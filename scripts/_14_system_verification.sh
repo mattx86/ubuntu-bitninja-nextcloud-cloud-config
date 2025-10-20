@@ -101,7 +101,7 @@ fi
 
 # PHP Required Modules Check
 log_and_console "  PHP Required Modules:"
-required_modules="curl dom fileinfo gd json libxml mbstring openssl posix session SimpleXML XMLReader XMLWriter zip zlib mysql gmp bcmath intl"
+required_modules="curl dom fileinfo gd json libxml mbstring openssl posix session SimpleXML XMLReader XMLWriter zip zlib mysqli mysqlnd pdo_mysql gmp bcmath intl"
 missing_modules=""
 for module in $required_modules; do
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
