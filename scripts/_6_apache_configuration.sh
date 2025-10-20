@@ -16,14 +16,15 @@ a2enmod mpm_prefork 2>/dev/null || log_and_console "✓ mpm_prefork already enab
 a2enmod rewrite headers env dir mime setenvif remoteip ssl && a2dismod status && a2dissite 000-default.conf
 log_and_console "✓ Apache SSL module enabled (for BitNinja ConfigParser certificate detection)"
 
-# Configure Apache for localhost-only binding on port 80 (BitNinja WAF handles external HTTPS)
-sed -i 's/^Listen 80$/Listen 127.0.0.1:80/' /etc/apache2/ports.conf
+# Configure Apache for localhost-only binding on port 443 (BitNinja WAF forwards decrypted HTTPS)
+# Disable port 80 completely
+sed -i 's/^Listen 80$/#Listen 80/' /etc/apache2/ports.conf
 
-# Comment out all Listen 443 directives (including those in IfModule blocks)
-sed -i 's/^\([[:space:]]*\)Listen 443$/\1#Listen 443/' /etc/apache2/ports.conf
+# Configure port 443 to listen on localhost only
+sed -i 's/^\([[:space:]]*\)Listen 443$/\1Listen 127.0.0.1:443/' /etc/apache2/ports.conf
 
-log_and_console "✓ Apache configured for localhost-only binding (127.0.0.1:80)"
-log_and_console "✓ Apache Listen 443 directives commented out (BitNinja handles HTTPS)"
+log_and_console "✓ Apache configured for localhost-only binding (127.0.0.1:443)"
+log_and_console "✓ Apache port 80 disabled (only HTTPS on localhost)"
 
 log_and_console "Configuring Apache MPM prefork for memory efficiency..."
 # Configure Apache MPM prefork to prevent memory exhaustion

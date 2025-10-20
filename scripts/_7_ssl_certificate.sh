@@ -37,24 +37,7 @@ log_and_console "✓ DNS correctly configured: $DOMAIN → $SERVER_IP"
 # Check if certificate already exists
 if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
   log_and_console "✓ SSL certificate already exists for $DOMAIN"
-  
-  # Only update BitNinja if it's installed (for manual re-runs)
-  if command -v bitninjacli &> /dev/null; then
-    log_and_console "Forcing BitNinja to recollect certificate..."
-    bitninjacli --module=SslTerminating --force-recollect 2>/dev/null
-    bitninjacli --module=SslTerminating --restart 2>/dev/null
-    log_and_console "✓ BitNinja SSL Terminating updated"
-  else
-    log_and_console "Note: BitNinja not yet installed - will be configured in next step"
-  fi
   exit 0
-fi
-
-# Install certbot if not present
-if ! command -v certbot &> /dev/null; then
-  log_and_console "Installing certbot..."
-  apt-get install -y certbot || { log_and_console "ERROR: Failed to install certbot"; exit 1; }
-  log_and_console "✓ certbot installed"
 fi
 
 # Obtain Let's Encrypt certificate
@@ -80,13 +63,12 @@ if [ $CERTBOT_EXIT_CODE -eq 0 ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
   # Set up automatic renewal hooks
   log_and_console "Configuring automatic certificate renewal..."
   
-  # Create renewal post-hook (update BitNinja with renewed certificate)
+  # Create renewal post-hook (restart BitNinja to pick up renewed certificate)
   mkdir -p /etc/letsencrypt/renewal-hooks/post
   cat > /etc/letsencrypt/renewal-hooks/post/update-bitninja.sh <<'EOFPOST'
 #!/bin/bash
-# Update BitNinja with renewed certificate
-bitninjacli --module=SslTerminating --force-recollect
-bitninjacli --module=SslTerminating --restart
+# Restart BitNinja to pick up renewed certificate
+systemctl restart bitninja
 EOFPOST
   chmod +x /etc/letsencrypt/renewal-hooks/post/update-bitninja.sh
   

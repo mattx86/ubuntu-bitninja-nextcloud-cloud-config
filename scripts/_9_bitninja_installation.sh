@@ -37,23 +37,17 @@ if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; 
   if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
     log_and_console "SSL certificates found for $DOMAIN, configuring BitNinja to use them..."
     
-    # Force ConfigParser to scan Apache configuration for SSL certificates
-    log_and_console "Forcing ConfigParser to scan Apache configuration..."
-    bitninjacli --module=SslTerminating --force-recollect 2>/dev/null && \
-      log_and_console "✓ ConfigParser scanned Apache configuration" || \
-      log_and_console "⚠ ConfigParser scan may have failed"
-    
-    # Restart entire BitNinja service to ensure all modules pick up SSL
+    # Restart entire BitNinja service to ensure ConfigParser scans Apache and picks up SSL
     log_and_console "Restarting BitNinja service to apply SSL configuration..."
     systemctl restart bitninja
     
-    # Wait for BitNinja to fully restart
-    log_and_console "Waiting for BitNinja to restart (15 seconds)..."
+    # Wait for BitNinja to fully restart and scan Apache configuration
+    log_and_console "Waiting for BitNinja to restart and scan Apache config (15 seconds)..."
     sleep 15
     
     # Verify SSL is enabled
     if bitninjacli --module=WAFManager --status 2>/dev/null | grep -q '"isSsl": true'; then
-      log_and_console "✓ SSL successfully enabled on WAFManager (port 60415 is now HTTPS)"
+      log_and_console "✓ SSL successfully enabled on WAFManager (port 60414 is now HTTPS)"
     else
       log_and_console "⚠ WARNING: SSL may not be enabled on WAFManager"
       log_and_console "Diagnostic commands:"
@@ -62,9 +56,8 @@ if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; 
       log_and_console "  cat /opt/bitninja-ssl-termination/etc/haproxy/cert-list.lst"
     fi
   else
-    log_and_console "⚠ No SSL certificates found yet - BitNinja will use HTTP mode on port 60415"
+    log_and_console "⚠ No SSL certificates found yet - BitNinja will use HTTP mode"
     log_and_console "After obtaining SSL certificates, run:"
-    log_and_console "  bitninjacli --module=SslTerminating --force-recollect"
     log_and_console "  systemctl restart bitninja"
   fi
   
