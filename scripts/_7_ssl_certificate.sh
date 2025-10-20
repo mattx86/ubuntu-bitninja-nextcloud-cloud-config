@@ -37,10 +37,16 @@ log_and_console "✓ DNS correctly configured: $DOMAIN → $SERVER_IP"
 # Check if certificate already exists
 if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
   log_and_console "✓ SSL certificate already exists for $DOMAIN"
-  log_and_console "Forcing BitNinja to recollect certificate..."
-  bitninjacli --module=SslTerminating --force-recollect
-  bitninjacli --module=SslTerminating --restart
-  log_and_console "✓ BitNinja SSL Terminating updated"
+  
+  # Only update BitNinja if it's installed (for manual re-runs)
+  if command -v bitninjacli &> /dev/null; then
+    log_and_console "Forcing BitNinja to recollect certificate..."
+    bitninjacli --module=SslTerminating --force-recollect 2>/dev/null
+    bitninjacli --module=SslTerminating --restart 2>/dev/null
+    log_and_console "✓ BitNinja SSL Terminating updated"
+  else
+    log_and_console "Note: BitNinja not yet installed - will be configured in next step"
+  fi
   exit 0
 fi
 
@@ -69,14 +75,7 @@ CERTBOT_EXIT_CODE=$?
 # Check if certificate was obtained successfully
 if [ $CERTBOT_EXIT_CODE -eq 0 ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
   log_and_console "✓ SSL certificate obtained successfully for $DOMAIN"
-  
-  # Configure BitNinja to use the certificate
-  log_and_console "Configuring BitNinja SSL Terminating to use new certificate..."
-  bitninjacli --module=SslTerminating --force-recollect
-  bitninjacli --module=SslTerminating --restart
-  
-  log_and_console "✓ BitNinja SSL Terminating configured with Let's Encrypt certificate"
-  log_and_console "✓ HTTPS is now active: https://$DOMAIN"
+  log_and_console "Note: BitNinja will be configured to use this certificate in the next step"
   
   # Set up automatic renewal hooks
   log_and_console "Configuring automatic certificate renewal..."

@@ -18,8 +18,12 @@ log_and_console "✓ Apache SSL module enabled (for BitNinja ConfigParser certif
 
 # Configure Apache for localhost-only binding on port 80 (BitNinja WAF handles external HTTPS)
 sed -i 's/^Listen 80$/Listen 127.0.0.1:80/' /etc/apache2/ports.conf
-sed -i 's/^ *Listen 443$/#Listen 443/' /etc/apache2/ports.conf
+
+# Comment out all Listen 443 directives (including those in IfModule blocks)
+sed -i 's/^\([[:space:]]*\)Listen 443$/\1#Listen 443/' /etc/apache2/ports.conf
+
 log_and_console "✓ Apache configured for localhost-only binding (127.0.0.1:80)"
+log_and_console "✓ Apache Listen 443 directives commented out (BitNinja handles HTTPS)"
 
 log_and_console "Configuring Apache MPM prefork for memory efficiency..."
 # Configure Apache MPM prefork to prevent memory exhaustion

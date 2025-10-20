@@ -68,44 +68,33 @@ if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; 
     log_and_console "  systemctl restart bitninja"
   fi
   
-  # Configure DNAT rules for WAF2 via UFW
-  log_and_console "Configuring DNAT rules for WAF2..."
+  # Configure BitNinja to create DNAT rules automatically
+  log_and_console "Configuring BitNinja WAFManager to create DNAT rules..."
   
   # Get server's primary IP address
   SERVER_IP=$(hostname -I | awk '{print $1}')
   
-  # Add DNAT rule to UFW's before.rules for persistence
-  log_and_console "Adding DNAT rule: port 443 → 60414 (WAF2 SSL Terminating)"
-  log_and_console "Note: Port 80 left open for certbot standalone (automatic SSL acquisition)"
+  # Enable WAFManager on the server's IP (this triggers automatic DNAT rule creation)
+  log_and_console "Enabling WAFManager on IP: $SERVER_IP"
+  bitninjacli --module=WAFManager --enable-on-ip="$SERVER_IP" 2>/dev/null && \
+    log_and_console "✓ WAFManager enabled on $SERVER_IP" || \
+    log_and_console "⚠ WAFManager enable may have failed"
   
-  # Backup UFW before.rules
-  cp /etc/ufw/before.rules /etc/ufw/before.rules.backup
-  
-  # Check if DNAT rules already exist
-  if ! grep -q "BN_WAF_REDIR" /etc/ufw/before.rules; then
-    # Add DNAT rules after the *nat table section
-    sed -i '/^\*nat$/a \
-:BN_WAF_REDIR - [0:0]\n\
-# BitNinja WAF2 DNAT rule for HTTPS\n\
-# Port 443 → SSL Terminating port 60414 (decrypts HTTPS and forwards to WAF2)\n\
-# Port 80 is left open for certbot standalone (no DNAT needed)\n\
--A PREROUTING -p tcp -m tcp --dport 443 -j BN_WAF_REDIR\n\
--A BN_WAF_REDIR -d '"$SERVER_IP"'/32 -p tcp -m tcp --dport 443 -j DNAT --to-destination '"127.0.0.1"':60414' /etc/ufw/before.rules
-    
-    log_and_console "✓ DNAT rules added to /etc/ufw/before.rules"
-    
-    # Reload UFW to apply changes
-    ufw reload
-    log_and_console "✓ UFW reloaded with DNAT rules"
+
+  # Verify DNAT rules were created by BitNinja
+  log_and_console "Verifying BitNinja DNAT rules..."
+  if iptables -t nat -L PREROUTING -n -v 2>/dev/null | grep -q "60414"; then
+    log_and_console "✓ BitNinja DNAT rules created: port 443 → 60414"
   else
-    log_and_console "✓ DNAT rules already exist in UFW configuration"
+    log_and_console "⚠ WARNING: BitNinja DNAT rules not detected"
+    log_and_console "Check manually: iptables -t nat -L PREROUTING -n -v | grep BN_WAF"
   fi
   
   # Verify WAF2 status
   log_and_console "Verifying WAF2 configuration..."
   sleep 2
   if bitninjacli --module=WAF --status 2>/dev/null | grep -q "active"; then
-    log_and_console "✓ WAF2 is active and handling port 443 → 60415 → Apache"
+    log_and_console "✓ WAF2 is active"
   else
     log_and_console "⚠ WARNING: WAF2 status check inconclusive - manual verification recommended"
   fi
