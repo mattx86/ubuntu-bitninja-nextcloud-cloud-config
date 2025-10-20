@@ -321,7 +321,7 @@ To use 2GB settings, uncomment the 2GB configuration lines in the config section
 ### ✅ System Security
 - **IPv6 Disabled:** System-wide IPv6 disablement for security
 - **Service Binding:** All services bound to localhost only
-- **Firewall Configuration:** UFW with SSH, HTTP (Let's Encrypt), and HTTPS
+- **Firewall Configuration:** UFW (IPv4-only) with SSH, HTTP (Let's Encrypt), and HTTPS
 - **DNAT Management:** UFW manages DNAT rules (BitNinja firewall management disabled via IpFilter module)
 - **Automatic Updates:** Unattended security updates enabled
 - **System Hardening:** Disabled unnecessary services, secured shared memory
@@ -731,7 +731,7 @@ GitHub Repository Structure:
 - **BitNinja WAF 2.0:** Web application firewall with SSL Terminating module (firewall management disabled)
 - **SSL Certificates:** Automated Let's Encrypt via certbot (auto-renewal every 60 days)
 - **fail2ban:** SSH, Apache, NextCloud, BitNinja protection
-- **UFW:** Minimal port exposure (SSH, HTTP, HTTPS only)
+- **UFW:** IPv4-only, minimal port exposure (SSH, HTTP, HTTPS only)
 - **MariaDB:** SSL enabled, root restricted to localhost
 - **Redis:** Localhost only, dangerous commands disabled
 
