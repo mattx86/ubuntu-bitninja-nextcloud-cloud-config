@@ -79,7 +79,7 @@ Upload to your cloud provider (Hetzner, AWS, DigitalOcean, etc.) as a cloud-conf
 ✅ Apache configured for localhost-only operation  
 ✅ SSL certificates automatically obtained via Let's Encrypt  
 ✅ System requirements verified  
-✅ Firewall configured (HTTP/HTTPS, SSH, BitNinja Captcha HTTPS port)
+✅ Firewall configured (HTTP/HTTPS, SSH)
 
 **Components Configured:**
 - Apache 2.4 with PHP 8.3 (mod_php)
@@ -307,7 +307,9 @@ To use 2GB settings, uncomment the 2GB configuration lines in the config section
 - **WAF Protection:** Web application firewall with advanced threat detection
 - **SSL Terminating Module:** Handles HTTPS traffic and forwards to Apache
 - **Let's Encrypt Integration:** Automatic SSL certificate acquisition and renewal
-- **Automatic Configuration:** All security features enabled during deployment
+- **Enabled Modules:** System, ConfigParser, DataProvider, SslTerminating, WAFManager, MalwareDetection, DosDetection, SenseLog, DefenseRobot
+- **Disabled Modules:** IpFilter (firewall management), AntiFlood, AuditManager, CaptchaFtp, CaptchaHttp, CaptchaSmtp, MalwareScanner, OutboundHoneypot, Patcher, PortHoneypot, ProxyFilter, SandboxScanner, SenseWebHoneypot, Shogun, SiteProtection, SpamDetection, SqlScanner, WAF3, ProcessAnalysis
+- **Firewall Management:** Completely disabled - UFW manages all firewall rules including DNAT
 
 ### ✅ Nextcloud (Official Docs Compliant)
 - **Complete PHP Stack:** All required and recommended PHP 8.3 modules
@@ -319,7 +321,8 @@ To use 2GB settings, uncomment the 2GB configuration lines in the config section
 ### ✅ System Security
 - **IPv6 Disabled:** System-wide IPv6 disablement for security
 - **Service Binding:** All services bound to localhost only
-- **Firewall Configuration:** UFW with SSH, HTTPS, and BitNinja Captcha ports
+- **Firewall Configuration:** UFW with SSH, HTTP (Let's Encrypt), and HTTPS
+- **DNAT Management:** UFW manages DNAT rules (BitNinja firewall management disabled via IpFilter module)
 - **Automatic Updates:** Unattended security updates enabled
 - **System Hardening:** Disabled unnecessary services, secured shared memory
 
@@ -346,7 +349,7 @@ All configuration files are downloaded from GitHub during deployment:
 | `fail2ban-jail.local` | fail2ban jail configuration | [`conf/fail2ban-jail.local`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-jail.local) |
 | `fail2ban-nextcloud.conf` | fail2ban filter (monitors Nextcloud app login failures) | [`conf/fail2ban-nextcloud.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-nextcloud.conf) |
 | `fail2ban-bitninja-waf.conf` | fail2ban filter (monitors BitNinja WAF detections) | [`conf/fail2ban-bitninja-waf.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-bitninja-waf.conf) |
-| `fail2ban-bitninja-captcha.conf` | fail2ban filter (monitors BitNinja Captcha abuse) | [`conf/fail2ban-bitninja-captcha.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-bitninja-captcha.conf) |
+| `fail2ban-bitninja-captcha.conf` | fail2ban filter (monitors BitNinja Captcha abuse - not used, CaptchaHttp disabled) | [`conf/fail2ban-bitninja-captcha.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/fail2ban-bitninja-captcha.conf) |
 | `nextcloud-apache-vhost.conf` | Apache virtual host configuration | [`conf/nextcloud-apache-vhost.conf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/nextcloud-apache-vhost.conf) |
 | `nextcloud-mariadb.cnf` | MariaDB optimization settings | [`conf/nextcloud-mariadb.cnf`](https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/conf/nextcloud-mariadb.cnf) |
 
@@ -691,18 +694,19 @@ GitHub Repository Structure:
 │   ├── _2_system_initialization.sh
 │   ├── _3_firewall_configuration.sh
 │   ├── _4_security_hardening.sh
-│   ├── _5_php_configuration.sh
-│   ├── _6_apache_configuration.sh
-│   ├── _7_ssl_certificate.sh          # Automated Let's Encrypt certificate acquisition
-│   ├── _8_redis_configuration.sh
-│   ├── _9_bitninja_installation.sh
-│   ├── _10_password_generation.sh
-│   ├── _11_mariadb_configuration.sh
-│   ├── _12_nextcloud_installation.sh
-│   ├── _13_system_optimization.sh
-│   ├── _14_system_verification.sh
-│   ├── _15_service_security_verification.sh
-│   └── _16_cleanup.sh
+│   ├── _5_system_update.sh             # Full system update (apt-get update/upgrade/dist-upgrade)
+│   ├── _6_php_configuration.sh
+│   ├── _7_apache_configuration.sh
+│   ├── _8_ssl_certificate.sh           # Automated Let's Encrypt certificate acquisition
+│   ├── _9_redis_configuration.sh
+│   ├── _10_bitninja_installation.sh
+│   ├── _11_password_generation.sh
+│   ├── _12_mariadb_configuration.sh
+│   ├── _13_nextcloud_installation.sh
+│   ├── _14_system_optimization.sh
+│   ├── _15_system_verification.sh
+│   ├── _16_service_security_verification.sh
+│   └── _17_cleanup.sh
 ├── conf/             # All configuration files
 │   ├── 50ubuntu-unattended-upgrades
 │   ├── fail2ban-bitninja-captcha.conf
@@ -719,16 +723,15 @@ GitHub Repository Structure:
 ### Firewall Rules
 - **SSH:** Port 22 (TCP)
 - **HTTP:** Port 80 (TCP) - Let's Encrypt HTTP-01 challenges (certbot standalone)
-- **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 SSL Terminating (DNAT to 60414)
-- **BitNinja Captcha:** Port 60413 (TCP) - HTTPS Captcha only
+- **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 SSL Terminating (UFW DNAT to 127.0.0.1:60414)
 
 ### Security Features
 - **IPv6:** Disabled system-wide
 - **Services:** Bound to localhost only (Apache, MariaDB, Redis)
-- **BitNinja WAF 2.0:** Web application firewall with SSL Terminating module
+- **BitNinja WAF 2.0:** Web application firewall with SSL Terminating module (firewall management disabled)
 - **SSL Certificates:** Automated Let's Encrypt via certbot (auto-renewal every 60 days)
 - **fail2ban:** SSH, Apache, NextCloud, BitNinja protection
-- **UFW:** Minimal port exposure (SSH, HTTP, HTTPS, BitNinja Captcha HTTPS only)
+- **UFW:** Minimal port exposure (SSH, HTTP, HTTPS only)
 - **MariaDB:** SSL enabled, root restricted to localhost
 - **Redis:** Localhost only, dangerous commands disabled
 
