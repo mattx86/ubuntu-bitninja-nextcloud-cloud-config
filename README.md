@@ -512,8 +512,49 @@ sudo tail -f $LOGS_DIR/deployment.log
 4. Check firewall: `sudo ufw status`
 5. Test Apache config: `apache2ctl -t`
 6. Check DNS: `dig your-domain.com`
-7. Verify Apache is bound to localhost: `sudo ss -tlnp | grep :80`
+7. Verify Apache is bound to localhost: `sudo ss -tlnp | grep :443`
 8. Verify BitNinja SSL Terminating: `bitninjacli --module=SslTerminating --status`
+
+### Can't Ping Out / No Outbound Connectivity
+
+If you can't ping external hosts or access HTTP/HTTPS from the server:
+
+1. **Check UFW default policies:**
+   ```bash
+   sudo ufw status verbose
+   ```
+   Should show: `Default: deny (incoming), allow (outgoing), allow (routed)`
+
+2. **Check if UFW is blocking outbound:**
+   ```bash
+   sudo iptables -L OUTPUT -n -v
+   ```
+
+3. **Verify loopback is allowed:**
+   ```bash
+   sudo ufw status | grep lo
+   ```
+
+4. **Test connectivity:**
+   ```bash
+   ping -c 4 8.8.8.8          # Test ICMP
+   curl -I https://google.com  # Test HTTPS
+   dig google.com              # Test DNS
+   ```
+
+5. **If still blocked, reset UFW:**
+   ```bash
+   sudo ufw --force reset
+   sudo ufw default deny incoming
+   sudo ufw default allow outgoing
+   sudo ufw default allow routed
+   sudo ufw allow 22/tcp
+   sudo ufw allow 80/tcp
+   sudo ufw allow 443/tcp
+   sudo ufw allow in on lo
+   sudo ufw allow out on lo
+   sudo ufw --force enable
+   ```
 
 ### Database Connection Errors
 
