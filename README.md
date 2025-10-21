@@ -542,7 +542,25 @@ If you can't ping external hosts or access HTTP/HTTPS from the server:
    dig google.com              # Test DNS
    ```
 
-5. **If still blocked, reset UFW:**
+5. **Check for iptables-restore errors:**
+   ```bash
+   sudo ufw reload
+   ```
+   If you see "No chain/target/match by that name" errors, the DNAT rule might be in the wrong table.
+
+6. **Fix DNAT rule if needed:**
+   ```bash
+   # Check if nat table exists in before.rules
+   grep "^\*nat" /etc/ufw/before.rules
+   
+   # If DNAT rule is in wrong place, remove it
+   sudo sed -i '/BitNinja WAF DNAT/,+1d' /etc/ufw/before.rules
+   
+   # Re-run BitNinja installation to add it correctly
+   sudo /root/system-setup/scripts/_10_bitninja_installation.sh
+   ```
+
+7. **If still blocked, reset UFW:**
    ```bash
    sudo ufw --force reset
    sudo ufw default deny incoming
@@ -554,6 +572,9 @@ If you can't ping external hosts or access HTTP/HTTPS from the server:
    sudo ufw allow in on lo
    sudo ufw allow out on lo
    sudo ufw --force enable
+   
+   # Then re-add DNAT rule
+   sudo /root/system-setup/scripts/_10_bitninja_installation.sh
    ```
 
 ### Database Connection Errors
@@ -764,9 +785,29 @@ GitHub Repository Structure:
 ```
 
 ### Firewall Rules
+
+#### External Ports (UFW)
 - **SSH:** Port 22 (TCP)
 - **HTTP:** Port 80 (TCP) - Let's Encrypt HTTP-01 challenges (certbot standalone)
 - **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 SSL Terminating (UFW DNAT to 127.0.0.1:60414)
+
+#### UFW DNAT Configuration
+The DNAT rule is configured in `/etc/ufw/before.rules` using the `*nat` table:
+
+```bash
+# NAT table for DNAT rules
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+
+# BitNinja WAF DNAT - Redirect HTTPS traffic to BitNinja SSL Terminating
+-A PREROUTING -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:60414
+
+# Commit nat table
+COMMIT
+```
+
+**Important:** The `*nat` table section must appear **before** the `*filter` table in `/etc/ufw/before.rules`. If the DNAT rule is in the wrong table, UFW will fail to reload with "No chain/target/match by that name" errors
 
 ### Security Features
 - **IPv6:** Disabled system-wide

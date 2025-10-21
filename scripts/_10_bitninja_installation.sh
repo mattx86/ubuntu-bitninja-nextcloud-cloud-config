@@ -138,10 +138,29 @@ EOFCONFIG
   if ! grep -q "BitNinja WAF DNAT" /etc/ufw/before.rules; then
     log_and_console "Adding DNAT rule: 443 → 127.0.0.1:60414"
     
-    # Insert DNAT rules before the COMMIT line in the nat table
-    sed -i '/^COMMIT$/i \
+    # Add nat table section if it doesn't exist
+    if ! grep -q "^\*nat" /etc/ufw/before.rules; then
+      # Add nat table at the beginning of the file (before *filter table)
+      sed -i '1i\
+# NAT table for DNAT rules\
+*nat\
+:PREROUTING ACCEPT [0:0]\
+:POSTROUTING ACCEPT [0:0]\
+\
 # BitNinja WAF DNAT - Redirect HTTPS traffic to BitNinja SSL Terminating\
--A PREROUTING -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:60414' /etc/ufw/before.rules
+-A PREROUTING -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:60414\
+\
+# Commit nat table\
+COMMIT\
+' /etc/ufw/before.rules
+    else
+      # nat table exists, just add the DNAT rule before its COMMIT
+      sed -i '/^\*nat/,/^COMMIT$/ {
+        /^COMMIT$/ i\
+# BitNinja WAF DNAT - Redirect HTTPS traffic to BitNinja SSL Terminating\
+-A PREROUTING -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:60414
+      }' /etc/ufw/before.rules
+    fi
     
     # Reload UFW to apply changes
     ufw reload
