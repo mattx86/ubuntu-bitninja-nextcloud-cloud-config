@@ -38,11 +38,13 @@ ufw allow in on lo
 ufw allow out on lo
 log_and_console "✓ Loopback interface allowed"
 
-# BitNinja internal ports (localhost only - UFW allows by default)
-# These ports are used by BitNinja WAF 2.0 internally:
+# BitNinja internal ports (localhost only - UFW allows by default via loopback)
+# These ports are used by BitNinja WAF 2.0 internally on 127.0.0.1:
 # 60300: WAF HTTP, 60301: WAF HTTPS
-# 60414-60415: SSL Terminating, 60416-60417: TrustedProxy
-log_and_console "✓ BitNinja internal ports (60300, 60301, 60414-60417) allowed on localhost"
+# 60414-60415: SSL Terminating (HTTPS/HTTP)
+# 60416-60417: TrustedProxy
+# Traffic is routed via DNAT: External 443 → 127.0.0.1:60414
+log_and_console "✓ BitNinja internal ports (60300, 60301, 60414-60417) on localhost"
 
 # Note: CaptchaHttp module is disabled, so no external Captcha ports needed
 

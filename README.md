@@ -7,9 +7,22 @@ Copyright (c) 2025 Matt Smith - [MIT License](LICENSE.md)
 This cloud-config YAML provides a complete, production-ready installation of **Nextcloud** with **BitNinja WAF 2.0** on **Ubuntu 24.04 LTS**, following official documentation from both projects. Includes **automated SSL certificate acquisition** via Let's Encrypt with certbot.
 
 ### 🏗️ Architecture
+
+**HTTPS Traffic Flow:**
 ```
-Internet → BitNinja WAF2 (HTTPS:443) → Apache (localhost:80) → NextCloud
+External Client
+    ↓ HTTPS (port 443)
+UFW DNAT Rule (443 → 127.0.0.1:60414)
+    ↓
+BitNinja SSL Terminating (127.0.0.1:60414)
+    ↓ Decrypts HTTPS, applies WAF rules
+    ↓ Forwards decrypted traffic
+Apache (127.0.0.1:443)
+    ↓
+Nextcloud
 ```
+
+**Important:** DNAT only works for **external traffic**. When testing from the server itself, use `curl https://127.0.0.1:60414/` or `curl https://127.0.0.1:443/` directly
 
 ### Stack Components
 - **Web Server:** Apache 2.4 with mod_php (localhost only)
@@ -506,6 +519,45 @@ sudo tail -f $LOGS_DIR/deployment.log
 
 ### Can't Access Nextcloud
 
+**🔍 Quick Diagnostic:**
+
+Run the automated diagnostic script to identify issues:
+```bash
+sudo bash /root/system-setup/scripts/_18_external_access_diagnostic.sh
+```
+
+This will check:
+- DNS configuration
+- Firewall rules
+- DNAT configuration
+- Listening ports
+- SSL certificates
+- BitNinja status
+- Connectivity tests
+
+**Important:** Due to DNAT configuration, you **cannot** test HTTPS access from the server itself using `curl https://SERVER_IP/` or `curl https://DOMAIN/`. DNAT only works for **external traffic**. Use these methods instead:
+
+**From the server (localhost testing):**
+```bash
+# Test Apache directly (should work)
+curl -k https://127.0.0.1:443/
+
+# Test BitNinja SSL Terminating directly (should work)
+curl -k https://127.0.0.1:60414/
+
+# Test with domain name (requires DNS to be set up)
+curl -k https://your-domain.com/
+```
+
+**From external machine (proper testing):**
+```bash
+# This is the ONLY way to test the full HTTPS flow through BitNinja WAF
+curl -k https://SERVER_IP/
+curl -k https://your-domain.com/
+```
+
+**Diagnostic Steps:**
+
 1. Check Apache: `systemctl status apache2`
 2. Check BitNinja: `systemctl status bitninja`
 3. Check SSL certificate: `certbot certificates`
@@ -514,6 +566,15 @@ sudo tail -f $LOGS_DIR/deployment.log
 6. Check DNS: `dig your-domain.com`
 7. Verify Apache is bound to localhost: `sudo ss -tlnp | grep :443`
 8. Verify BitNinja SSL Terminating: `bitninjacli --module=SslTerminating --status`
+9. Check DNAT rule: `sudo iptables -t nat -L PREROUTING -n -v | grep 60414`
+10. Verify listening ports:
+    ```bash
+    # Apache should be on 127.0.0.1:443
+    sudo ss -tlnp | grep :443
+    
+    # BitNinja should be on 0.0.0.0:60414 or :::60414
+    sudo ss -tlnp | grep :60414
+    ```
 
 ### Can't Ping Out / No Outbound Connectivity
 
@@ -560,7 +621,15 @@ If you can't ping external hosts or access HTTP/HTTPS from the server:
    sudo /root/system-setup/scripts/_10_bitninja_installation.sh
    ```
 
-7. **If still blocked, reset UFW:**
+7. **Verify DNAT rule:**
+   ```bash
+   # Should show exactly 1 DNAT rule
+   sudo iptables -t nat -L PREROUTING -n --line-numbers | grep 60414
+   ```
+   
+   **Note:** The configuration uses `:PREROUTING - [0:0]` policy which flushes the chain before adding rules, preventing duplicates even when UFW is disabled/re-enabled.
+
+8. **If still blocked, reset UFW:**
    ```bash
    sudo ufw --force reset
    sudo ufw default deny incoming
@@ -789,7 +858,9 @@ GitHub Repository Structure:
 #### External Ports (UFW)
 - **SSH:** Port 22 (TCP)
 - **HTTP:** Port 80 (TCP) - Let's Encrypt HTTP-01 challenges (certbot standalone)
-- **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 SSL Terminating (UFW DNAT to 127.0.0.1:60414)
+- **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 (DNAT to 127.0.0.1:60414)
+
+**Note:** All services (Apache, MariaDB, Redis, BitNinja) listen on localhost only (127.0.0.1). External HTTPS traffic is routed via DNAT to BitNinja on localhost
 
 #### UFW DNAT Configuration
 The DNAT rule is configured in `/etc/ufw/before.rules` using the `*nat` table:
@@ -797,27 +868,118 @@ The DNAT rule is configured in `/etc/ufw/before.rules` using the `*nat` table:
 ```bash
 # NAT table for DNAT rules
 *nat
-:PREROUTING ACCEPT [0:0]
+:PREROUTING - [0:0]
 :POSTROUTING ACCEPT [0:0]
 
-# BitNinja WAF DNAT - Redirect HTTPS traffic to BitNinja SSL Terminating
+# BitNinja WAF DNAT - Redirect HTTPS traffic to BitNinja SSL Terminating (localhost)
 -A PREROUTING -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:60414
 
 # Commit nat table
 COMMIT
 ```
 
-**Important:** The `*nat` table section must appear **before** the `*filter` table in `/etc/ufw/before.rules`. If the DNAT rule is in the wrong table, UFW will fail to reload with "No chain/target/match by that name" errors
+**Important Notes:**
+- The `*nat` table section must appear **before** the `*filter` table in `/etc/ufw/before.rules`
+- The `:PREROUTING - [0:0]` policy (with `-` instead of `ACCEPT`) **flushes** the PREROUTING chain before adding rules, preventing duplicates when UFW is disabled/re-enabled
+- DNAT redirects to `127.0.0.1:60414` (localhost) for maximum security - BitNinja is not directly accessible from the internet
+- If the DNAT rule is in the wrong table, UFW will fail to reload with "No chain/target/match by that name" errors
+
+#### Why DNAT Doesn't Work for Local Testing
+
+**DNAT only applies to external traffic**, not traffic originating from the server itself. This is a fundamental limitation of how Linux netfilter/iptables works:
+
+1. **External traffic** (from internet):
+   - Goes through: `PREROUTING → INPUT → Application`
+   - DNAT happens in `PREROUTING` ✅
+   - `curl https://SERVER_IP/` from **external machine** → Works!
+
+2. **Local traffic** (from the server itself):
+   - Goes through: `OUTPUT → POSTROUTING`
+   - Never hits `PREROUTING` where DNAT happens ❌
+   - `curl https://SERVER_IP/` from **the server** → Connection refused!
+
+**Solution:** When testing from the server, use localhost addresses:
+```bash
+# Test Apache directly
+curl -k https://127.0.0.1:443/
+
+# Test BitNinja SSL Terminating directly  
+curl -k https://127.0.0.1:60414/
+
+# Test with domain (if DNS is configured)
+curl -k https://your-domain.com/
+```
+
+**For proper testing:** Always test from an **external machine** to verify the full HTTPS flow through BitNinja WAF
+
+---
+
+## 🔒 BitNinja Localhost Binding
+
+BitNinja is configured to bind **only to localhost (127.0.0.1)** for maximum security. This is done via `/etc/bitninja/SslTerminating/config.ini`:
+
+```ini
+[haproxy]
+; WAF front end settings - bind to localhost only
+WafFrontEndSettings[bindOption]='alpn h2,http1.1'
+WafFrontEndSettings[iface]='127.0.0.1'
+WafFrontEndSettings[name]='waf-https'
+WafFrontEndSettings[port]=60414
+
+; Captcha front end settings - bind to localhost only
+CaptchaFrontEndSettings[bindOption]='alpn h2,http1.1'
+CaptchaFrontEndSettings[iface]='127.0.0.1'
+CaptchaFrontEndSettings[name]='Captcha-https'
+CaptchaFrontEndSettings[port]=60413
+```
+
+**Configuration Files:**
+- `/etc/bitninja/SslTerminating/config.ini` - SslTerminating module config (INI format) - **localhost binding configured here**
+- `/etc/bitninja/config.php` - User overrides (PHP array format) - module enable/disable
+
+**Default Binding:** BitNinja defaults to `[::]` (all interfaces including IPv6). We change this to `127.0.0.1` (localhost only)
+
+**Benefits:**
+- ✅ BitNinja services not directly accessible from internet
+- ✅ Only accessible via DNAT redirect (443 → 127.0.0.1:60414)
+- ✅ Reduced attack surface
+- ✅ Defense in depth security model
+
+**Verification:**
+```bash
+# Check the config file
+sudo grep "FrontEndSettings\[iface\]" /etc/bitninja/SslTerminating/config.ini
+# Should show:
+# WafFrontEndSettings[iface]='127.0.0.1'
+# CaptchaFrontEndSettings[iface]='127.0.0.1'
+
+# Check BitNinja is listening on localhost only
+sudo ss -tlnp | grep -E ':(60414|60415)'
+# Should show: 127.0.0.1:60414 and 127.0.0.1:60415 (NOT 0.0.0.0 or :::)
+
+# Verify DNAT redirects to localhost
+sudo iptables -t nat -L PREROUTING -n -v | grep 60414
+# Should show: to:127.0.0.1:60414
+```
+
+---
 
 ### Security Features
 - **IPv6:** Disabled system-wide
-- **Services:** Bound to localhost only (Apache, MariaDB, Redis)
-- **BitNinja WAF 2.0:** Web application firewall with SSL Terminating module (firewall management disabled)
+- **Localhost-Only Binding:** All services bound to 127.0.0.1 only
+  - Apache: 127.0.0.1:443
+  - BitNinja SSL Terminating: 127.0.0.1:60414
+  - BitNinja WAFManager: 127.0.0.1:60300-60301
+  - MariaDB: 127.0.0.1:3306
+  - Redis: 127.0.0.1:6379
+- **BitNinja WAF 2.0:** Web application firewall with SSL Terminating module
+  - Configured for localhost-only binding via `/etc/bitninja/config.php`
+  - Firewall management disabled (UFW manages all rules)
+  - External access via DNAT only
 - **SSL Certificates:** Automated Let's Encrypt via certbot (auto-renewal every 60 days)
 - **fail2ban:** SSH, Apache, NextCloud, BitNinja protection
 - **UFW:** IPv4-only, minimal port exposure (SSH, HTTP, HTTPS only)
-- **MariaDB:** SSL enabled, root restricted to localhost
-- **Redis:** Localhost only, dangerous commands disabled
+- **DNAT Security:** External HTTPS redirected to localhost services only
 
 ---
 
