@@ -146,6 +146,42 @@ EOFCONFIG
       # Force BitNinja to reload certificates
       bitninjacli --module=SslTerminating --force-recollect 2>/dev/null
       log_and_console "✓ BitNinja certificates reloaded"
+      
+      # Configure BitNinja to listen on port 443 (not 60414)
+      log_and_console "Configuring BitNinja to listen on port 443..."
+      sed -i 's/^WafFrontEndSettings\[port\]=60414$/WafFrontEndSettings[port]=443/' /etc/bitninja/SslTerminating/config.ini
+      log_and_console "✓ BitNinja configured to listen on port 443"
+      
+      # Fix the backend configuration (BitNinja has a typo in the filename: ssl_termiantion.cfg)
+      log_and_console "Configuring BitNinja backend to forward to Apache..."
+      
+      # Wait for BitNinja to generate the config file
+      sleep 5
+      
+      if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
+        # Backup the file
+        cp /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg \
+           /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg.backup
+        
+        # Fix backend to point to Apache on 127.0.0.1:80 (not *:443)
+        sed -i 's/server\s\+origin-backend\s\+\*:443.*/server origin-backend 127.0.0.1:80 check backup/' \
+          /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+        
+        # Make it immutable so BitNinja can't regenerate it
+        chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+        
+        log_and_console "✓ BitNinja backend configured to forward to Apache (127.0.0.1:80)"
+        log_and_console "✓ Config file made immutable to prevent regeneration"
+      else
+        log_and_console "⚠ WARNING: BitNinja config file not found yet"
+        log_and_console "You may need to configure the backend manually"
+      fi
+      
+      # Restart BitNinja to apply all changes
+      log_and_console "Restarting BitNinja to apply configuration..."
+      systemctl restart bitninja
+      sleep 10
+      log_and_console "✓ BitNinja restarted with new configuration"
     else
       log_and_console "⚠ WARNING: Failed to add SSL certificate to BitNinja"
       log_and_console "You may need to add it manually after deployment"
