@@ -4,9 +4,6 @@
 
 source /root/system-setup/config.sh
 log_and_console "=== SSL CERTIFICATE ACQUISITION ==="
-
-# Get server's primary IP address
-SERVER_IP=$(hostname -I | awk '{print $1}')
 log_and_console "Server IP: $SERVER_IP"
 log_and_console "Domain: $DOMAIN"
 

@@ -3,12 +3,11 @@
 # Creates system setup directory structure
 
 # Create directories first (before sourcing config.sh which needs logs directory)
-mkdir -p /root/system-setup/{scripts,logs,downloads,conf}
+mkdir -p /root/system-setup/{scripts,logs,downloads}
 chmod 700 /root/system-setup
 chmod 700 /root/system-setup/scripts
 chmod 700 /root/system-setup/logs
 chmod 700 /root/system-setup/downloads
-chmod 700 /root/system-setup/conf
 
 # Create and secure log files
 touch /root/system-setup/logs/deployment.log

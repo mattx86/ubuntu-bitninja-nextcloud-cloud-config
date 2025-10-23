@@ -12,9 +12,9 @@ This cloud-config YAML provides a complete, production-ready installation of **N
 ```
 External Client
     ↓ HTTPS (port 443)
-UFW DNAT Rule (443 → 127.0.0.1:60414)
+UFW Firewall
     ↓
-BitNinja SSL Terminating (127.0.0.1:60414)
+BitNinja SSL Terminating (SERVER_IP:443)
     ↓ Decrypts HTTPS, applies WAF rules
     ↓ Forwards decrypted traffic
 Apache (127.0.0.1:443)
@@ -22,7 +22,11 @@ Apache (127.0.0.1:443)
 Nextcloud
 ```
 
-**Important:** DNAT only works for **external traffic**. When testing from the server itself, use `curl https://127.0.0.1:60414/` or `curl https://127.0.0.1:443/` directly
+**Key Points:**
+- BitNinja listens on the **public IP address (SERVER_IP:443)**
+- Apache backend listens on **localhost only (127.0.0.1:443)**
+- No DNAT needed - simple direct connection
+- All external HTTPS traffic passes through BitNinja WAF first
 
 ### Stack Components
 - **Web Server:** Apache 2.4 with mod_php (localhost only)
@@ -856,93 +860,66 @@ GitHub Repository Structure:
 ### Firewall Rules
 
 #### External Ports (UFW)
-- **SSH:** Port 22 (TCP)
-- **HTTP:** Port 80 (TCP) - Let's Encrypt HTTP-01 challenges (certbot standalone)
-- **HTTPS:** Port 443 (TCP) - BitNinja WAF 2.0 (DNAT to 127.0.0.1:60414)
+All UFW rules are configured with **explicit destination IP** (`SERVER_IP`) for security:
 
-**Note:** All services (Apache, MariaDB, Redis, BitNinja) listen on localhost only (127.0.0.1). External HTTPS traffic is routed via DNAT to BitNinja on localhost
+- **SSH:** Port 22 (TCP) → `SERVER_IP:22`
+- **HTTP:** Port 80 (TCP) → `SERVER_IP:80` - Let's Encrypt HTTP-01 challenges (certbot standalone)
+- **HTTPS:** Port 443 (TCP) → `SERVER_IP:443` - BitNinja WAF 2.0 (direct connection)
+- **HTTPS Captcha:** Port 60413 (TCP) → `SERVER_IP:60413` - BitNinja HttpsCaptcha (if enabled)
 
-#### UFW DNAT Configuration
-The DNAT rule is configured in `/etc/ufw/before.rules` using the `*nat` table:
-
+**UFW Rule Format:**
 ```bash
-# NAT table for DNAT rules
-*nat
-:PREROUTING - [0:0]
-:POSTROUTING ACCEPT [0:0]
-
-# BitNinja WAF DNAT - Redirect HTTPS traffic to BitNinja SSL Terminating (localhost)
--A PREROUTING -p tcp --dport 443 -j DNAT --to-destination 127.0.0.1:60414
-
-# Commit nat table
-COMMIT
+# Simplified rules that work for both IPv4-only and IPv4+IPv6 configurations
+ufw allow proto tcp from any to SERVER_IP port 22 comment 'SSH administration'
+ufw allow proto tcp from any to SERVER_IP port 80 comment 'HTTP - Lets Encrypt challenges'
+ufw allow proto tcp from any to SERVER_IP port 443 comment 'HTTPS - BitNinja WAF'
+ufw allow proto tcp from any to SERVER_IP port 60413 comment 'HTTPS Captcha - BitNinja (if enabled)'
 ```
 
-**Important Notes:**
-- The `*nat` table section must appear **before** the `*filter` table in `/etc/ufw/before.rules`
-- The `:PREROUTING - [0:0]` policy (with `-` instead of `ACCEPT`) **flushes** the PREROUTING chain before adding rules, preventing duplicates when UFW is disabled/re-enabled
-- DNAT redirects to `127.0.0.1:60414` (localhost) for maximum security - BitNinja is not directly accessible from the internet
-- If the DNAT rule is in the wrong table, UFW will fail to reload with "No chain/target/match by that name" errors
-
-#### Why DNAT Doesn't Work for Local Testing
-
-**DNAT only applies to external traffic**, not traffic originating from the server itself. This is a fundamental limitation of how Linux netfilter/iptables works:
-
-1. **External traffic** (from internet):
-   - Goes through: `PREROUTING → INPUT → Application`
-   - DNAT happens in `PREROUTING` ✅
-   - `curl https://SERVER_IP/` from **external machine** → Works!
-
-2. **Local traffic** (from the server itself):
-   - Goes through: `OUTPUT → POSTROUTING`
-   - Never hits `PREROUTING` where DNAT happens ❌
-   - `curl https://SERVER_IP/` from **the server** → Connection refused!
-
-**Solution:** When testing from the server, use localhost addresses:
-```bash
-# Test Apache directly
-curl -k https://127.0.0.1:443/
-
-# Test BitNinja SSL Terminating directly  
-curl -k https://127.0.0.1:60414/
-
-# Test with domain (if DNS is configured)
-curl -k https://your-domain.com/
-```
-
-**For proper testing:** Always test from an **external machine** to verify the full HTTPS flow through BitNinja WAF
+**Benefits:** 
+- ✅ Explicit destination IP (`SERVER_IP`) - rules only apply to the public IP
+- ✅ Single rule format - no conditional logic for IPv4-only vs IPv4+IPv6
+- ✅ More secure - prevents unintended access on other interfaces
+- ✅ BitNinja listens on the **public IP** (`SERVER_IP:443`)
+- ✅ Apache and other services (MariaDB, Redis) listen on **localhost only** (`127.0.0.1`)
 
 ---
 
-## 🔒 BitNinja Localhost Binding
+## 🔒 BitNinja Public IP Binding
 
-BitNinja is configured to bind **only to localhost (127.0.0.1)** for maximum security. This is done via `/etc/bitninja/SslTerminating/config.ini`:
+BitNinja is configured to bind to the **server's public IP address** for direct HTTPS access. This is done via `/etc/bitninja/SslTerminating/config.ini`:
 
 ```ini
 [haproxy]
-; WAF front end settings - bind to localhost only
+; WAF front end settings - bind to public IP
 WafFrontEndSettings[bindOption]='alpn h2,http1.1'
-WafFrontEndSettings[iface]='127.0.0.1'
+WafFrontEndSettings[iface]='SERVER_IP'
 WafFrontEndSettings[name]='waf-https'
-WafFrontEndSettings[port]=60414
+WafFrontEndSettings[port]=443
 
-; Captcha front end settings - bind to localhost only
+; Captcha front end settings - bind to public IP (if enabled)
 CaptchaFrontEndSettings[bindOption]='alpn h2,http1.1'
-CaptchaFrontEndSettings[iface]='127.0.0.1'
+CaptchaFrontEndSettings[iface]='SERVER_IP'
 CaptchaFrontEndSettings[name]='Captcha-https'
 CaptchaFrontEndSettings[port]=60413
 ```
 
 **Configuration Files:**
-- `/etc/bitninja/SslTerminating/config.ini` - SslTerminating module config (INI format) - **localhost binding configured here**
+- `/etc/bitninja/SslTerminating/config.ini` - SslTerminating module config (INI format) - **IP binding configured here**
 - `/etc/bitninja/config.php` - User overrides (PHP array format) - module enable/disable
 
-**Default Binding:** BitNinja defaults to `[::]` (all interfaces including IPv6). We change this to `127.0.0.1` (localhost only)
+**Key Changes from Defaults:**
+- `WafFrontEndSettings[iface]`: Changed from `[::]` (all interfaces) to `SERVER_IP` (specific public IP)
+- `CaptchaFrontEndSettings[iface]`: Changed from `[::]` to `SERVER_IP`
+- BitNinja listens on `SERVER_IP:443` (public IP, port 443)
+- Apache backend listens on `127.0.0.1:443` (localhost only)
 
 **Benefits:**
-- ✅ BitNinja services not directly accessible from internet
-- ✅ Only accessible via DNAT redirect (443 → 127.0.0.1:60414)
-- ✅ Reduced attack surface
+- ✅ Simple, direct architecture - no DNAT needed
+- ✅ BitNinja handles all external HTTPS traffic
+- ✅ Apache backend isolated on localhost
+- ✅ All traffic passes through WAF before reaching Apache
+- ✅ Easy to understand and troubleshoot
 - ✅ Defense in depth security model
 
 **Verification:**

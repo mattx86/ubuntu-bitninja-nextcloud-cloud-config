@@ -67,6 +67,7 @@ write_files:
       export ADMIN_EMAIL="admin@your-domain.com"
       export BITNINJA_LICENSE="YOUR_LICENSE_KEY"
       export TIMEZONE="UTC"
+      export SERVER_IP="$(hostname -I | awk '{print $1}')"
       
       # ===== DATABASE CONFIGURATION =====
       export DB_NAME="nextcloud"
@@ -84,9 +85,9 @@ write_files:
       
       # ===== SECURITY CONFIGURATION =====
       export UFW_SSH_PORT="22"
+      export UFW_HTTP_PORT="80"
       export UFW_HTTPS_PORT="443"
-      export BITNINJA_CAPTCHA_PORT_1="60412"
-      export BITNINJA_CAPTCHA_PORT_2="60413"
+      export UFW_CAPTCHA_PORT="60413"
       
       # ===== MEMORY CONFIGURATION =====
       # Current settings optimized for 1GB RAM system

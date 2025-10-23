@@ -20,18 +20,12 @@ ufw --force default allow routed
 # Enable UFW
 ufw --force enable
 
-# Add firewall rules
-if [ "$DISABLE_IPV6" = "true" ]; then
-  # IPv4-only rules
-  ufw allow proto tcp from any to any port "$UFW_SSH_PORT" comment 'SSH administration (IPv4)'
-  ufw allow proto tcp from any to any port 80 comment 'HTTP - Lets Encrypt challenges (IPv4)'
-  ufw allow proto tcp from any to any port "$UFW_HTTPS_PORT" comment 'HTTPS - BitNinja WAF (IPv4)'
-else
-  # Standard rules (IPv4 + IPv6)
-  ufw allow "$UFW_SSH_PORT/tcp" comment 'SSH administration'
-  ufw allow 80/tcp comment 'HTTP - Lets Encrypt challenges'
-  ufw allow "$UFW_HTTPS_PORT/tcp" comment 'HTTPS - BitNinja WAF'
-fi
+# Add firewall rules with explicit destination IP
+# These rules work for both IPv4-only and IPv4+IPv6 configurations
+ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_SSH_PORT" comment 'SSH administration'
+ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_HTTP_PORT" comment 'HTTP - Lets Encrypt challenges'
+ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_HTTPS_PORT" comment 'HTTPS - BitNinja WAF'
+ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_CAPTCHA_PORT" comment 'HTTPS Captcha - BitNinja (if enabled)'
 
 # Allow all traffic on loopback interface (localhost)
 ufw allow in on lo
@@ -41,12 +35,13 @@ log_and_console "✓ Loopback interface allowed"
 # BitNinja internal ports (localhost only - UFW allows by default via loopback)
 # These ports are used by BitNinja WAF 2.0 internally on 127.0.0.1:
 # 60300: WAF HTTP, 60301: WAF HTTPS
-# 60414-60415: SSL Terminating (HTTPS/HTTP)
+# 60414-60415: SSL Terminating backend ports
 # 60416-60417: TrustedProxy
-# Traffic is routed via DNAT: External 443 → 127.0.0.1:60414
+# BitNinja listens on SERVER_IP:443 (external), Apache on 127.0.0.1:443 (backend)
 log_and_console "✓ BitNinja internal ports (60300, 60301, 60414-60417) on localhost"
 
-# Note: CaptchaHttp module is disabled, so no external Captcha ports needed
+# Note: Port 60413 (HTTPS Captcha) is opened in UFW above
+# CaptchaHttp module is disabled by default, but HttpsCaptcha can be enabled if needed
 
 # Reload UFW to apply all changes
 ufw reload
@@ -55,4 +50,4 @@ ufw reload
 log_and_console "=== UFW Status ==="
 ufw status verbose | tee -a "$LOG_FILE"
 
-log_and_console "✓ UFW configured: SSH ($UFW_SSH_PORT), HTTP (80), HTTPS ($UFW_HTTPS_PORT)"
+log_and_console "✓ UFW configured: SSH ($UFW_SSH_PORT), HTTP ($UFW_HTTP_PORT), HTTPS ($UFW_HTTPS_PORT), HTTPS Captcha ($UFW_CAPTCHA_PORT)"
