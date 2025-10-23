@@ -16,17 +16,17 @@ UFW Firewall (allows only SERVER_IP:443)
     ↓
 BitNinja SSL Terminating (0.0.0.0:443)
     ↓ Decrypts HTTPS, applies WAF rules
-    ↓ Forwards decrypted traffic
-Apache (127.0.0.1:443)
+    ↓ Forwards decrypted HTTP traffic
+Apache (127.0.0.1:80)
     ↓
 Nextcloud
 ```
 
 **Key Points:**
-- BitNinja listens on **all interfaces (0.0.0.0:443)** - managed by BitNinja
-- UFW firewall restricts access to **SERVER_IP:443 only** - managed by our scripts
-- Apache backend listens on **localhost only (127.0.0.1:443)**
-- No DNAT needed - simple direct connection
+- BitNinja listens on **all interfaces (0.0.0.0:443)** for SSL termination
+- UFW firewall restricts access to **SERVER_IP:443 only**
+- Apache backend listens on **localhost only (127.0.0.1:80)** - HTTP only
+- BitNinja internal ports (60415, 60418) bound to **127.0.0.1** for security
 - All external HTTPS traffic passes through UFW → BitNinja WAF → Apache
 
 ### Stack Components
@@ -221,7 +221,7 @@ If DNS is not configured at deployment time, the script will skip SSL acquisitio
 - Apache is configured to bind to `127.0.0.1:80` only (localhost)
 - Certbot binds to `SERVER_IP:80` (public IP) for HTTP-01 challenges - no conflict
 - No Apache downtime needed during certificate acquisition
-- BitNinja SSL Terminating (port 60414) receives certificates automatically
+- BitNinja SSL Terminating (port 443) receives certificates via CLI (`--add-cert`)
 - Renewal hooks ensure BitNinja picks up renewed certificates every 60 days
 
 #### 🔧 Post-Installation Configuration
@@ -540,24 +540,26 @@ This will check:
 - BitNinja status
 - Connectivity tests
 
-**Important:** Due to DNAT configuration, you **cannot** test HTTPS access from the server itself using `curl https://SERVER_IP/` or `curl https://DOMAIN/`. DNAT only works for **external traffic**. Use these methods instead:
+**Testing HTTPS Access:**
 
 **From the server (localhost testing):**
 ```bash
-# Test Apache directly (should work)
-curl -k https://127.0.0.1:443/
+# Test Apache directly (HTTP backend)
+curl http://127.0.0.1:80/
 
-# Test BitNinja SSL Terminating directly (should work)
-curl -k https://127.0.0.1:60414/
-
-# Test with domain name (requires DNS to be set up)
+# Test BitNinja with domain name (requires DNS and SNI)
 curl -k https://your-domain.com/
+
+# Note: BitNinja requires SNI (Server Name Indication)
+# Using IP address will result in "400 Bad Request"
 ```
 
 **From external machine (proper testing):**
 ```bash
-# This is the ONLY way to test the full HTTPS flow through BitNinja WAF
+# Test via IP address (BitNinja will use default certificate)
 curl -k https://SERVER_IP/
+
+# Test via domain name (recommended - uses proper certificate)
 curl -k https://your-domain.com/
 ```
 
@@ -569,16 +571,18 @@ curl -k https://your-domain.com/
 4. Check firewall: `sudo ufw status`
 5. Test Apache config: `apache2ctl -t`
 6. Check DNS: `dig your-domain.com`
-7. Verify Apache is bound to localhost: `sudo ss -tlnp | grep :443`
+7. Verify Apache is bound to localhost: `sudo ss -tlnp | grep :80`
 8. Verify BitNinja SSL Terminating: `bitninjacli --module=SslTerminating --status`
-9. Check DNAT rule: `sudo iptables -t nat -L PREROUTING -n -v | grep 60414`
-10. Verify listening ports:
+9. Verify listening ports:
     ```bash
-    # Apache should be on 127.0.0.1:443
-    sudo ss -tlnp | grep :443
+    # Apache should be on 127.0.0.1:80
+    sudo ss -tlnp | grep :80 | grep apache
     
-    # BitNinja should be on 0.0.0.0:60414 or :::60414
-    sudo ss -tlnp | grep :60414
+    # BitNinja should be on 0.0.0.0:443
+    sudo ss -tlnp | grep :443 | grep bitninja
+    
+    # BitNinja internal ports should be on 127.0.0.1
+    sudo ss -tlnp | grep bitninja | grep -E ':(60415|60418)'
     ```
 
 ### Can't Ping Out / No Outbound Connectivity
@@ -612,29 +616,9 @@ If you can't ping external hosts or access HTTP/HTTPS from the server:
    ```bash
    sudo ufw reload
    ```
-   If you see "No chain/target/match by that name" errors, the DNAT rule might be in the wrong table.
+   If you see "No chain/target/match by that name" errors, check the UFW configuration files.
 
-6. **Fix DNAT rule if needed:**
-   ```bash
-   # Check if nat table exists in before.rules
-   grep "^\*nat" /etc/ufw/before.rules
-   
-   # If DNAT rule is in wrong place, remove it
-   sudo sed -i '/BitNinja WAF DNAT/,+1d' /etc/ufw/before.rules
-   
-   # Re-run BitNinja installation to add it correctly
-   sudo /root/system-setup/scripts/_10_bitninja_installation.sh
-   ```
-
-7. **Verify DNAT rule:**
-   ```bash
-   # Should show exactly 1 DNAT rule
-   sudo iptables -t nat -L PREROUTING -n --line-numbers | grep 60414
-   ```
-   
-   **Note:** The configuration uses `:PREROUTING - [0:0]` policy which flushes the chain before adding rules, preventing duplicates even when UFW is disabled/re-enabled.
-
-8. **If still blocked, reset UFW:**
+6. **If still blocked, reset UFW:**
    ```bash
    sudo ufw --force reset
    sudo ufw default deny incoming
@@ -888,23 +872,35 @@ ufw allow proto tcp from any to SERVER_IP port 60413 comment 'HTTPS Captcha - Bi
 
 ## 🔒 BitNinja Network Binding
 
-BitNinja listens on **all interfaces (0.0.0.0)** by default, and **UFW firewall controls access**. This is the standard security model.
+BitNinja uses a **mixed binding strategy** for security:
+
+**Public Ports (External Access):**
+- **Port 443** (HTTPS): Listens on `0.0.0.0` (all interfaces), restricted by UFW to `SERVER_IP` only
+- **Port 60413** (HTTPS Captcha): Listens on `0.0.0.0` (all interfaces), restricted by UFW to `SERVER_IP` only
+
+**Internal Ports (Localhost Only):**
+- **Port 60415** (WAF HTTP Proxy): Listens on `127.0.0.1` only (not exposed externally)
+- **Port 60418** (XCaptcha HTTPS): Listens on `127.0.0.1` only (not exposed externally)
 
 **Why This Approach:**
-- BitNinja's configuration files (`/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termination.cfg` and `/etc/bitninja/SslTerminating/config.ini`) **regenerate automatically**
-- Manual edits to these files are overwritten when BitNinja restarts
-- Attempting to bind BitNinja to a specific IP or interface doesn't persist
-- The correct approach is to let BitNinja listen broadly and use UFW to restrict access
+- BitNinja's configuration files regenerate automatically, but we make them **immutable** using `chattr +i`
+- Public ports (443, 60413) use UFW firewall to restrict access to `SERVER_IP` only
+- Internal ports (60415, 60418) are bound to localhost for defense-in-depth security
+- This provides multiple layers of protection
 
 **Security Model:**
 ```
-Internet → UFW Firewall (allows only SERVER_IP:443) → BitNinja (0.0.0.0:443) → Apache (127.0.0.1:443)
+Internet → UFW Firewall (allows only SERVER_IP:443) → BitNinja (0.0.0.0:443) → Apache (127.0.0.1:80)
+                                                            ↓
+                                                    Internal Ports (127.0.0.1:60415, 60418)
 ```
 
 **Configuration:**
-- **BitNinja**: Listens on `0.0.0.0:443` (all interfaces) - managed by BitNinja
-- **UFW**: Restricts access to `SERVER_IP:443` only - managed by our scripts
-- **Apache**: Listens on `127.0.0.1:443` (localhost only) - managed by our scripts
+- **BitNinja Port 443**: Listens on `0.0.0.0:443` (SSL termination) - UFW restricts to `SERVER_IP`
+- **BitNinja Port 60413**: Listens on `0.0.0.0:60413` (HTTPS Captcha) - UFW restricts to `SERVER_IP`
+- **BitNinja Port 60415**: Listens on `127.0.0.1:60415` (WAF HTTP proxy) - localhost only
+- **BitNinja Port 60418**: Listens on `127.0.0.1:60418` (XCaptcha HTTPS) - localhost only
+- **Apache**: Listens on `127.0.0.1:80` (HTTP backend) - localhost only
 
 **Benefits:**
 - ✅ Works with BitNinja's automatic configuration regeneration
@@ -916,39 +912,40 @@ Internet → UFW Firewall (allows only SERVER_IP:443) → BitNinja (0.0.0.0:443)
 
 **Verification:**
 ```bash
-# Check the config file
-sudo grep "FrontEndSettings\[iface\]" /etc/bitninja/SslTerminating/config.ini
-# Should show:
-# WafFrontEndSettings[iface]='127.0.0.1'
-# CaptchaFrontEndSettings[iface]='127.0.0.1'
+# Check BitNinja public ports (should listen on 0.0.0.0)
+sudo ss -tlnp | grep bitninja | grep -E ':(443|60413)'
+# Should show: 0.0.0.0:443 and 0.0.0.0:60413
 
-# Check BitNinja is listening on localhost only
-sudo ss -tlnp | grep -E ':(60414|60415)'
-# Should show: 127.0.0.1:60414 and 127.0.0.1:60415 (NOT 0.0.0.0 or :::)
+# Check BitNinja internal ports (should listen on 127.0.0.1 only)
+sudo ss -tlnp | grep bitninja | grep -E ':(60415|60418)'
+# Should show: 127.0.0.1:60415 and 127.0.0.1:60418
 
-# Verify DNAT redirects to localhost
-sudo iptables -t nat -L PREROUTING -n -v | grep 60414
-# Should show: to:127.0.0.1:60414
+# Verify immutable config files
+sudo lsattr /opt/bitninja-ssl-termination/etc/haproxy/configs/*.cfg
+# Should show 'i' flag (immutable) on ssl_termiantion.cfg, waf_proxy_http.cfg, xcaptcha_https_multiport.cfg
 ```
 
 ---
 
 ### Security Features
 - **IPv6:** Disabled system-wide
-- **Localhost-Only Binding:** All services bound to 127.0.0.1 only
-  - Apache: 127.0.0.1:443
-  - BitNinja SSL Terminating: 127.0.0.1:60414
-  - BitNinja WAFManager: 127.0.0.1:60300-60301
-  - MariaDB: 127.0.0.1:3306
-  - Redis: 127.0.0.1:6379
+- **Network Binding Strategy:**
+  - **Public Ports (UFW-restricted):**
+    - BitNinja Port 443: 0.0.0.0:443 (HTTPS - SSL termination)
+    - BitNinja Port 60413: 0.0.0.0:60413 (HTTPS Captcha)
+  - **Localhost-Only Services:**
+    - Apache: 127.0.0.1:80 (HTTP backend)
+    - BitNinja Port 60415: 127.0.0.1:60415 (WAF HTTP proxy)
+    - BitNinja Port 60418: 127.0.0.1:60418 (XCaptcha HTTPS)
+    - MariaDB: 127.0.0.1:3306
+    - Redis: 127.0.0.1:6379
 - **BitNinja WAF 2.0:** Web application firewall with SSL Terminating module
-  - Configured for localhost-only binding via `/etc/bitninja/config.php`
+  - Public ports controlled by UFW firewall (restricted to SERVER_IP)
+  - Internal ports bound to localhost only (immutable config files)
   - Firewall management disabled (UFW manages all rules)
-  - External access via DNAT only
 - **SSL Certificates:** Automated Let's Encrypt via certbot (auto-renewal every 60 days)
 - **fail2ban:** SSH, Apache, NextCloud, BitNinja protection
-- **UFW:** IPv4-only, minimal port exposure (SSH, HTTP, HTTPS only)
-- **DNAT Security:** External HTTPS redirected to localhost services only
+- **UFW:** IPv4-only, minimal port exposure (SSH, HTTP, HTTPS, HTTPS Captcha)
 
 ---
 

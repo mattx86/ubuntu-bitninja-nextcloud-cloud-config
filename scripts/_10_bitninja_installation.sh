@@ -167,14 +167,55 @@ EOFCONFIG
         sed -i 's/server\s\+origin-backend\s\+\*:443.*/server origin-backend 127.0.0.1:80 check backup/' \
           /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
         
+        # Remove all IPv6 bind lines (bind [::])
+        sed -i '/bind \[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+        
         # Make it immutable so BitNinja can't regenerate it
         chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
         
         log_and_console "✓ BitNinja backend configured to forward to Apache (127.0.0.1:80)"
+        log_and_console "✓ IPv6 binds removed from ssl_termiantion.cfg"
         log_and_console "✓ Config file made immutable to prevent regeneration"
       else
         log_and_console "⚠ WARNING: BitNinja config file not found yet"
         log_and_console "You may need to configure the backend manually"
+      fi
+      
+      # Configure internal BitNinja ports (60415, 60418) to listen on localhost only
+      log_and_console "Configuring BitNinja internal ports to listen on localhost only..."
+      
+      # Port 60415 (WAF HTTP proxy)
+      if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg" ]; then
+        cp /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg \
+           /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg.backup
+        
+        # Remove IPv6 bind and change wildcard to localhost
+        sed -i '/bind \[::\]:60415/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg
+        sed -i 's/bind \*:60415/bind 127.0.0.1:60415/' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg
+        
+        # Make immutable
+        chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg
+        
+        log_and_console "✓ Port 60415 configured to listen on 127.0.0.1 only"
+      else
+        log_and_console "⚠ waf_proxy_http.cfg not found - port 60415 may not be restricted"
+      fi
+      
+      # Port 60418 (XCaptcha HTTPS)
+      if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg" ]; then
+        cp /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg \
+           /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg.backup
+        
+        # Remove IPv6 bind and change wildcard to localhost
+        sed -i '/bind \[::\]:60418/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg
+        sed -i 's/bind \*:60418/bind 127.0.0.1:60418/' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg
+        
+        # Make immutable
+        chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg
+        
+        log_and_console "✓ Port 60418 configured to listen on 127.0.0.1 only"
+      else
+        log_and_console "⚠ xcaptcha_https_multiport.cfg not found - port 60418 may not be restricted"
       fi
       
       # Restart BitNinja to apply all changes
@@ -216,7 +257,13 @@ EOFCONFIG
   log_and_console ""
   log_and_console "=== BitNinja Configuration Summary ==="
   log_and_console "Listening Ports:"
-  ss -tlnp | grep -E ':(443|60414|60415)' | tee -a "$LOG_FILE"
+  ss -tlnp | grep -E ':(443|60413|60415|60418)' | tee -a "$LOG_FILE"
+  log_and_console ""
+  log_and_console "Expected configuration:"
+  log_and_console "  - Port 443: 0.0.0.0 (public HTTPS - BitNinja SSL termination)"
+  log_and_console "  - Port 60413: 0.0.0.0 (public HTTPS Captcha - if enabled)"
+  log_and_console "  - Port 60415: 127.0.0.1 (localhost only - WAF HTTP proxy)"
+  log_and_console "  - Port 60418: 127.0.0.1 (localhost only - XCaptcha HTTPS)"
   
   # Verify BitNinja is listening on port 443
   if ss -tlnp | grep ":443" | grep "bitninja" | grep -q '0.0.0.0\|:::'; then
