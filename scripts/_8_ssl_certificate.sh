@@ -55,16 +55,18 @@ CERTBOT_EXIT_CODE=$?
 # Check if certificate was obtained successfully
 if [ $CERTBOT_EXIT_CODE -eq 0 ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
   log_and_console "✓ SSL certificate obtained successfully for $DOMAIN"
-  log_and_console "Note: BitNinja will be configured to use this certificate in the next step"
+  log_and_console "Note: Certificate will be added to BitNinja in the next step"
   
   # Set up automatic renewal hooks
   log_and_console "Configuring automatic certificate renewal..."
   
   # Create renewal post-hook (restart BitNinja to pick up renewed certificate)
+  # Note: Certificate paths are symlinks, so BitNinja just needs to reload
   mkdir -p /etc/letsencrypt/renewal-hooks/post
   cat > /etc/letsencrypt/renewal-hooks/post/update-bitninja.sh <<'EOFPOST'
 #!/bin/bash
 # Restart BitNinja to pick up renewed certificate
+# Certificate paths are symlinks that certbot updates, so just restart
 systemctl restart bitninja
 EOFPOST
   chmod +x /etc/letsencrypt/renewal-hooks/post/update-bitninja.sh
@@ -80,7 +82,7 @@ else
   log_and_console "  3. Firewall (UFW) allows port 80"
   log_and_console ""
   log_and_console "To retry manually:"
-  log_and_console "  /root/system-setup/scripts/_7_ssl_certificate.sh"
+  log_and_console "  /root/system-setup/scripts/_8_ssl_certificate.sh"
   exit 1
 fi
 

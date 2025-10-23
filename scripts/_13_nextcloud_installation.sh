@@ -65,8 +65,9 @@ sudo -u www-data php occ app:enable files_external
 chown -R www-data:www-data "$NEXTCLOUD_WEB_DIR"
 chown -R www-data:www-data "$NEXTCLOUD_DATA_DIR"
 
-# NextCloud Security Configuration
+# NextCloud Security Configuration (reverse proxy behind BitNinja)
 sudo -u www-data php occ config:system:set trusted_proxies 0 --value="127.0.0.1"
+sudo -u www-data php occ config:system:set forwarded_for_headers 0 --value="HTTP_X_FORWARDED_FOR"
 sudo -u www-data php occ config:system:set overwrite.cli.url --value="http://localhost"
 sudo -u www-data php occ config:system:set overwriteprotocol --value="https"
 sudo -u www-data php occ config:system:set overwritehost --value="$DOMAIN"

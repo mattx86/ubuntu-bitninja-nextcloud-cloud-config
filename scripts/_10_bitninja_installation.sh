@@ -77,7 +77,9 @@ return array(
             // Core modules (DO NOT DISABLE - required for functionality)
             // 'System',
             // 'DataProvider',
-            // 'ConfigParser',
+            
+            // ConfigParser (DISABLED - we manually manage SSL certificates via CLI)
+            'ConfigParser',
             
             // Firewall management (DISABLED - UFW manages firewall)
             'IpFilter',
@@ -127,48 +129,43 @@ EOFCONFIG
   systemctl restart bitninja
   sleep 10
   
-  # Configure public IP binding in SslTerminating config (INI format)
-  # This file is created by BitNinja after the first start, so we configure it after restart
-  log_and_console "Configuring public IP binding in /etc/bitninja/SslTerminating/config.ini..."
+  # ConfigParser is disabled via /etc/bitninja/config.php (see above)
+  # We manually add SSL certificates to BitNinja instead
+  log_and_console "ConfigParser module disabled (via config.php)"
   
-  # Wait for config file to be created (up to 30 seconds)
-  WAIT_COUNT=0
-  while [ ! -f /etc/bitninja/SslTerminating/config.ini ] && [ $WAIT_COUNT -lt 30 ]; do
-    sleep 1
-    WAIT_COUNT=$((WAIT_COUNT + 1))
-  done
-  
-  if [ -f /etc/bitninja/SslTerminating/config.ini ]; then
-    # Backup original config
-    cp /etc/bitninja/SslTerminating/config.ini /etc/bitninja/SslTerminating/config.ini.backup
-    
-    # Change WafFrontEndSettings[iface] from '[::]' to SERVER_IP
-    # This makes BitNinja listen on the public IP address on port 443
-    sed -i "s/^WafFrontEndSettings\[iface\]=.*/WafFrontEndSettings[iface]='$SERVER_IP'/" /etc/bitninja/SslTerminating/config.ini
-    log_and_console "✓ Updated WafFrontEndSettings[iface] to '$SERVER_IP'"
-    
-    # Change CaptchaFrontEndSettings[iface] from '[::]' to SERVER_IP (if Captcha was enabled)
-    sed -i "s/^CaptchaFrontEndSettings\[iface\]=.*/CaptchaFrontEndSettings[iface]='$SERVER_IP'/" /etc/bitninja/SslTerminating/config.ini
-    log_and_console "✓ Updated CaptchaFrontEndSettings[iface] to '$SERVER_IP'"
-    
-    log_and_console "✓ BitNinja SslTerminating configured:"
-    log_and_console "  - BitNinja listening on $SERVER_IP:443 (external)"
-    log_and_console "  - Apache listening on 127.0.0.1:443 (backend)"
-    log_and_console "  - No DNAT needed - direct connection"
-    
-    # Restart BitNinja again to apply the binding configuration
-    log_and_console "Restarting BitNinja to apply binding configuration..."
-    systemctl restart bitninja
-    sleep 5
+  # Manually add SSL certificates to BitNinja
+  log_and_console "Configuring SSL certificates for BitNinja..."
+  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    log_and_console "Adding SSL certificate for $DOMAIN to BitNinja..."
+    if bitninjacli --module=SslTerminating --add-cert \
+      --domain="$DOMAIN" \
+      --certFile="/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
+      --keyFile="/etc/letsencrypt/live/$DOMAIN/privkey.pem" 2>/dev/null; then
+      log_and_console "✓ SSL certificate added to BitNinja"
+      
+      # Force BitNinja to reload certificates
+      bitninjacli --module=SslTerminating --force-recollect 2>/dev/null
+      log_and_console "✓ BitNinja certificates reloaded"
+    else
+      log_and_console "⚠ WARNING: Failed to add SSL certificate to BitNinja"
+      log_and_console "You may need to add it manually after deployment"
+    fi
   else
-    log_and_console "⚠ WARNING: /etc/bitninja/SslTerminating/config.ini not found after 30 seconds"
-    log_and_console "BitNinja may still be initializing. Manual configuration required:"
-    log_and_console "  1. Wait for BitNinja to fully start"
-    log_and_console "  2. Edit /etc/bitninja/SslTerminating/config.ini"
-    log_and_console "  3. Change WafFrontEndSettings[iface]='[::]' to '$SERVER_IP'"
-    log_and_console "  4. Change CaptchaFrontEndSettings[iface]='[::]' to '$SERVER_IP'"
-    log_and_console "  5. Run: systemctl restart bitninja"
+    log_and_console "⚠ No SSL certificate found yet for $DOMAIN"
+    log_and_console "Certificate will be added to BitNinja after Let's Encrypt acquisition"
   fi
+  
+  # BitNinja will listen on all interfaces by default (0.0.0.0 or [::])
+  # UFW firewall controls which IPs can access BitNinja ports
+  # This is the standard security model - application listens, firewall restricts
+  log_and_console ""
+  log_and_console "✓ BitNinja configuration:"
+  log_and_console "  - BitNinja listening on 0.0.0.0:443 (SSL termination)"
+  log_and_console "  - UFW restricts access to $SERVER_IP only"
+  log_and_console "  - Apache listening on 127.0.0.1:80 (HTTP backend)"
+  log_and_console ""
+  log_and_console "Note: BitNinja config files regenerate automatically."
+  log_and_console "      SSL certificates managed via BitNinja CLI, not ConfigParser."
   
   # Sync configuration to cloud
   bitninjacli --syncconfigs 2>/dev/null && log_and_console "✓ Config synced to BitNinja cloud" || log_and_console "Config sync skipped"
@@ -188,16 +185,15 @@ EOFCONFIG
   log_and_console "Listening Ports:"
   ss -tlnp | grep -E ':(443|60414|60415)' | tee -a "$LOG_FILE"
   
-  # Verify BitNinja is listening on SERVER_IP:443
-  if ss -tlnp | grep ":443" | grep "bitninja" | grep -q "$SERVER_IP"; then
-    log_and_console "✓ BitNinja correctly listening on $SERVER_IP:443 (external)"
+  # Verify BitNinja is listening on port 443
+  if ss -tlnp | grep ":443" | grep "bitninja" | grep -q '0.0.0.0\|:::'; then
+    log_and_console "✓ BitNinja listening on 0.0.0.0:443 (all interfaces - correct)"
+    log_and_console "✓ UFW restricts access to $SERVER_IP only"
+  elif ss -tlnp | grep ":443" | grep "bitninja" | grep -q "$SERVER_IP"; then
+    log_and_console "✓ BitNinja listening on $SERVER_IP:443 (specific IP)"
   elif ss -tlnp | grep ":443" | grep "bitninja" | grep -q '127.0.0.1'; then
     log_and_console "⚠ WARNING: BitNinja is listening on 127.0.0.1:443 (localhost only)"
-    log_and_console "Expected: $SERVER_IP:443. Check /etc/bitninja/SslTerminating/config.ini"
-    log_and_console "Verify: grep 'FrontEndSettings\[iface\]' /etc/bitninja/SslTerminating/config.ini"
-  elif ss -tlnp | grep ":443" | grep "bitninja" | grep -q '0.0.0.0\|:::'; then
-    log_and_console "⚠ WARNING: BitNinja is listening on all interfaces (0.0.0.0 or :::)"
-    log_and_console "Expected: $SERVER_IP:443. Check /etc/bitninja/SslTerminating/config.ini"
+    log_and_console "This means BitNinja won't be accessible externally!"
   else
     log_and_console "⚠ WARNING: BitNinja may not be listening on port 443"
     log_and_console "Check: ss -tlnp | grep :443"

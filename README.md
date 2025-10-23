@@ -12,9 +12,9 @@ This cloud-config YAML provides a complete, production-ready installation of **N
 ```
 External Client
     ↓ HTTPS (port 443)
-UFW Firewall
+UFW Firewall (allows only SERVER_IP:443)
     ↓
-BitNinja SSL Terminating (SERVER_IP:443)
+BitNinja SSL Terminating (0.0.0.0:443)
     ↓ Decrypts HTTPS, applies WAF rules
     ↓ Forwards decrypted traffic
 Apache (127.0.0.1:443)
@@ -23,10 +23,11 @@ Nextcloud
 ```
 
 **Key Points:**
-- BitNinja listens on the **public IP address (SERVER_IP:443)**
+- BitNinja listens on **all interfaces (0.0.0.0:443)** - managed by BitNinja
+- UFW firewall restricts access to **SERVER_IP:443 only** - managed by our scripts
 - Apache backend listens on **localhost only (127.0.0.1:443)**
 - No DNAT needed - simple direct connection
-- All external HTTPS traffic passes through BitNinja WAF first
+- All external HTTPS traffic passes through UFW → BitNinja WAF → Apache
 
 ### Stack Components
 - **Web Server:** Apache 2.4 with mod_php (localhost only)
@@ -885,41 +886,32 @@ ufw allow proto tcp from any to SERVER_IP port 60413 comment 'HTTPS Captcha - Bi
 
 ---
 
-## 🔒 BitNinja Public IP Binding
+## 🔒 BitNinja Network Binding
 
-BitNinja is configured to bind to the **server's public IP address** for direct HTTPS access. This is done via `/etc/bitninja/SslTerminating/config.ini`:
+BitNinja listens on **all interfaces (0.0.0.0)** by default, and **UFW firewall controls access**. This is the standard security model.
 
-```ini
-[haproxy]
-; WAF front end settings - bind to public IP
-WafFrontEndSettings[bindOption]='alpn h2,http1.1'
-WafFrontEndSettings[iface]='SERVER_IP'
-WafFrontEndSettings[name]='waf-https'
-WafFrontEndSettings[port]=443
+**Why This Approach:**
+- BitNinja's configuration files (`/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termination.cfg` and `/etc/bitninja/SslTerminating/config.ini`) **regenerate automatically**
+- Manual edits to these files are overwritten when BitNinja restarts
+- Attempting to bind BitNinja to a specific IP or interface doesn't persist
+- The correct approach is to let BitNinja listen broadly and use UFW to restrict access
 
-; Captcha front end settings - bind to public IP (if enabled)
-CaptchaFrontEndSettings[bindOption]='alpn h2,http1.1'
-CaptchaFrontEndSettings[iface]='SERVER_IP'
-CaptchaFrontEndSettings[name]='Captcha-https'
-CaptchaFrontEndSettings[port]=60413
+**Security Model:**
+```
+Internet → UFW Firewall (allows only SERVER_IP:443) → BitNinja (0.0.0.0:443) → Apache (127.0.0.1:443)
 ```
 
-**Configuration Files:**
-- `/etc/bitninja/SslTerminating/config.ini` - SslTerminating module config (INI format) - **IP binding configured here**
-- `/etc/bitninja/config.php` - User overrides (PHP array format) - module enable/disable
-
-**Key Changes from Defaults:**
-- `WafFrontEndSettings[iface]`: Changed from `[::]` (all interfaces) to `SERVER_IP` (specific public IP)
-- `CaptchaFrontEndSettings[iface]`: Changed from `[::]` to `SERVER_IP`
-- BitNinja listens on `SERVER_IP:443` (public IP, port 443)
-- Apache backend listens on `127.0.0.1:443` (localhost only)
+**Configuration:**
+- **BitNinja**: Listens on `0.0.0.0:443` (all interfaces) - managed by BitNinja
+- **UFW**: Restricts access to `SERVER_IP:443` only - managed by our scripts
+- **Apache**: Listens on `127.0.0.1:443` (localhost only) - managed by our scripts
 
 **Benefits:**
-- ✅ Simple, direct architecture - no DNAT needed
-- ✅ BitNinja handles all external HTTPS traffic
+- ✅ Works with BitNinja's automatic configuration regeneration
+- ✅ UFW provides the security layer (industry standard)
+- ✅ Simple and reliable - no fighting with BitNinja's config management
 - ✅ Apache backend isolated on localhost
 - ✅ All traffic passes through WAF before reaching Apache
-- ✅ Easy to understand and troubleshoot
 - ✅ Defense in depth security model
 
 **Verification:**

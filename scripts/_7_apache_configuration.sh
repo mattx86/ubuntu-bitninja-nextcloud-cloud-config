@@ -12,19 +12,28 @@ log_and_console "Configuring Apache modules and localhost binding..."
 a2dismod mpm_event mpm_worker 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || log_and_console "✓ mpm_prefork already enabled"
 
-# Enable required modules (including SSL for ConfigParser), disable status module, disable default site
-a2enmod rewrite headers env dir mime setenvif remoteip ssl && a2dismod status && a2dissite 000-default.conf
-log_and_console "✓ Apache SSL module enabled (for BitNinja ConfigParser certificate detection)"
+# Enable required modules, disable status module, disable default site
+a2enmod rewrite headers env dir mime setenvif remoteip && a2dismod status && a2dissite 000-default.conf
 
-# Configure Apache for localhost-only binding on port 443 (BitNinja WAF forwards decrypted HTTPS)
-# Disable port 80 completely
-sed -i 's/^Listen 80$/#Listen 80/' /etc/apache2/ports.conf
+# Configure Apache for localhost-only binding on port 80 (BitNinja WAF forwards decrypted HTTP traffic)
+# BitNinja handles SSL termination on 0.0.0.0:443
+log_and_console "Configuring Apache ports..."
 
-# Configure port 443 to listen on localhost only
-sed -i 's/^\([[:space:]]*\)Listen 443$/\1Listen 127.0.0.1:443/' /etc/apache2/ports.conf
+# Check if already configured
+if grep -q "^Listen 127.0.0.1:80" /etc/apache2/ports.conf; then
+  log_and_console "✓ Apache ports already configured for localhost binding"
+else
+  # Comment out default Listen directives (only if not already commented)
+  sed -i 's/^Listen 80$/#Listen 80/' /etc/apache2/ports.conf
+  sed -i 's/^\([[:space:]]*\)Listen 443$/\1#Listen 443/' /etc/apache2/ports.conf
+  
+  # Add localhost-only binding for port 80
+  echo "Listen 127.0.0.1:80" >> /etc/apache2/ports.conf
+  log_and_console "✓ Added Listen 127.0.0.1:80 to ports.conf"
+fi
 
-log_and_console "✓ Apache configured for localhost-only binding (127.0.0.1:443)"
-log_and_console "✓ Apache port 80 disabled (only HTTPS on localhost)"
+log_and_console "✓ Apache configured for localhost-only binding (127.0.0.1:80)"
+log_and_console "✓ BitNinja handles SSL termination on 0.0.0.0:443"
 
 log_and_console "Configuring Apache MPM prefork for memory efficiency..."
 # Configure Apache MPM prefork to prevent memory exhaustion
