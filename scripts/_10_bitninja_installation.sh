@@ -203,9 +203,6 @@ EOFCONFIG
   log_and_console "Note: BitNinja config files regenerate automatically."
   log_and_console "      SSL certificates managed via BitNinja CLI, not ConfigParser."
   
-  # Sync configuration to cloud
-  bitninjacli --syncconfigs 2>/dev/null && log_and_console "✓ Config synced to BitNinja cloud" || log_and_console "Config sync skipped"
-  
   # Verify WAF2 status
   log_and_console "Verifying WAF2 configuration..."
   sleep 2
@@ -263,6 +260,15 @@ EOFCONFIG
   log_and_console "2. Test from external machine: curl -k https://$DOMAIN/"
   log_and_console "3. Check logs: tail -f /var/log/bitninja/error.log"
   log_and_console "4. Check Apache: tail -f /var/log/apache2/nextcloud-error.log"
+  
+  # Sync configuration to BitNinja cloud (after all configuration is complete)
+  log_and_console ""
+  log_and_console "Syncing configuration to BitNinja cloud..."
+  if bitninjacli --syncconfigs 2>/dev/null; then
+    log_and_console "✓ Configuration synced to BitNinja cloud"
+  else
+    log_and_console "⚠ Config sync skipped (may not be critical)"
+  fi
   
   log_and_console "✓ BitNinja security features configured"
 else
