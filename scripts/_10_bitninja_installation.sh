@@ -159,8 +159,20 @@ EOFCONFIG
       log_and_console "✓ BitNinja restarted, waiting for config generation..."
       
       # Wait for all config files to be generated
-      log_and_console "Waiting for BitNinja to generate all config files (10 seconds)..."
-      sleep 10
+      log_and_console "Waiting for BitNinja to generate all config files..."
+      
+      # Wait up to 60 seconds for ssl_termiantion.cfg to be created
+      WAIT_COUNT=0
+      while [ ! -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ] && [ $WAIT_COUNT -lt 60 ]; do
+        sleep 1
+        WAIT_COUNT=$((WAIT_COUNT + 1))
+      done
+      
+      if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
+        log_and_console "✓ Config files generated after ${WAIT_COUNT} seconds"
+      else
+        log_and_console "⚠ Timeout waiting for config files (waited 60 seconds)"
+      fi
       
       # Now configure BitNinja (after configs are generated)
       log_and_console "Configuring BitNinja backend and port bindings..."
