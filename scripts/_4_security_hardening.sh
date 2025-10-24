@@ -86,6 +86,10 @@ else
   log_and_console "✓ SSH configured for IPv4 and IPv6"
 fi
 
+# Ensure SSH service is enabled on boot (not just the socket)
+systemctl enable ssh
+log_and_console "✓ SSH service enabled on boot"
+
 # Restart SSH to apply hardening immediately (Ubuntu uses 'ssh' not 'sshd')
 systemctl restart ssh
 log_and_console "✓ SSH hardening applied and service restarted"
