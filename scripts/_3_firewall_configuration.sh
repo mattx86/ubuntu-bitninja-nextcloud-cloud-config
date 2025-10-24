@@ -21,11 +21,23 @@ ufw --force default allow routed
 ufw --force enable
 
 # Add firewall rules with explicit destination IP
-# These rules work for both IPv4-only and IPv4+IPv6 configurations
-ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_SSH_PORT" comment 'SSH administration'
-ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_HTTP_PORT" comment 'HTTP - Lets Encrypt challenges'
-ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_HTTPS_PORT" comment 'HTTPS - BitNinja WAF'
-ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_CAPTCHA_PORT" comment 'HTTPS Captcha - BitNinja (if enabled)'
+log_and_console "Adding UFW rules for IPv4 address: $SERVER_IP"
+ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_SSH_PORT" comment 'SSH administration (IPv4)'
+ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_HTTP_PORT" comment 'HTTP - Lets Encrypt challenges (IPv4)'
+ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_HTTPS_PORT" comment 'HTTPS - BitNinja WAF (IPv4)'
+ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_CAPTCHA_PORT" comment 'HTTPS Captcha - BitNinja (IPv4)'
+
+# Add IPv6 rules if IPv6 is enabled
+if [ "$DISABLE_IPV6" != "true" ] && [ -n "$SERVER_IPV6" ]; then
+  log_and_console "Adding UFW rules for IPv6 address: $SERVER_IPV6"
+  ufw allow proto tcp from any to "$SERVER_IPV6" port "$UFW_SSH_PORT" comment 'SSH administration (IPv6)'
+  ufw allow proto tcp from any to "$SERVER_IPV6" port "$UFW_HTTP_PORT" comment 'HTTP - Lets Encrypt challenges (IPv6)'
+  ufw allow proto tcp from any to "$SERVER_IPV6" port "$UFW_HTTPS_PORT" comment 'HTTPS - BitNinja WAF (IPv6)'
+  ufw allow proto tcp from any to "$SERVER_IPV6" port "$UFW_CAPTCHA_PORT" comment 'HTTPS Captcha - BitNinja (IPv6)'
+  log_and_console "✓ IPv6 firewall rules added"
+else
+  log_and_console "✓ IPv6 disabled - skipping IPv6 firewall rules"
+fi
 
 # Allow all traffic on loopback interface (localhost)
 ufw allow in on lo

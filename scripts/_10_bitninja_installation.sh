@@ -152,13 +152,24 @@ EOFCONFIG
       sed -i 's/^WafFrontEndSettings\[port\]=60414$/WafFrontEndSettings[port]=443/' /etc/bitninja/SslTerminating/config.ini
       log_and_console "✓ BitNinja configured to listen on port 443"
       
+      # Restart BitNinja FIRST to let it generate all config files
+      log_and_console "Restarting BitNinja to generate configuration files..."
+      systemctl restart bitninja
+      sleep 15
+      log_and_console "✓ BitNinja restarted, waiting for config generation..."
+      
+      # Wait for all config files to be generated
+      log_and_console "Waiting for BitNinja to generate all config files (10 seconds)..."
+      sleep 10
+      
+      # Now configure BitNinja (after configs are generated)
+      log_and_console "Configuring BitNinja backend and port bindings..."
+      
       # Fix the backend configuration (BitNinja has a typo in the filename: ssl_termiantion.cfg)
-      log_and_console "Configuring BitNinja backend to forward to Apache..."
-      
-      # Wait for BitNinja to generate the config file
-      sleep 5
-      
       if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
+        # Remove immutable flag if set (from previous runs)
+        chattr -i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
+        
         # Backup the file
         cp /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg \
            /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg.backup
@@ -167,18 +178,21 @@ EOFCONFIG
         sed -i 's/server\s\+origin-backend\s\+\*:443.*/server origin-backend 127.0.0.1:80 check backup/' \
           /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
         
-        # Remove all IPv6 bind lines (bind [::])
-        sed -i '/bind \[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+        # Remove IPv6 bind lines only if IPv6 is disabled
+        if [ "$DISABLE_IPV6" = "true" ]; then
+          sed -i '/bind \[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+          log_and_console "✓ IPv6 binds removed (IPv6 disabled)"
+        else
+          log_and_console "✓ IPv6 binds preserved (IPv6 enabled)"
+        fi
         
         # Make it immutable so BitNinja can't regenerate it
         chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
         
         log_and_console "✓ BitNinja backend configured to forward to Apache (127.0.0.1:80)"
         log_and_console "✓ IPv6 binds removed from ssl_termiantion.cfg"
-        log_and_console "✓ Config file made immutable to prevent regeneration"
       else
-        log_and_console "⚠ WARNING: BitNinja config file not found yet"
-        log_and_console "You may need to configure the backend manually"
+        log_and_console "⚠ WARNING: ssl_termiantion.cfg not found"
       fi
       
       # Configure internal BitNinja ports (60415, 60418) to listen on localhost only
@@ -186,11 +200,16 @@ EOFCONFIG
       
       # Port 60415 (WAF HTTP proxy)
       if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg" ]; then
+        # Remove immutable flag if set (from previous runs)
+        chattr -i /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
+        
         cp /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg \
            /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg.backup
         
-        # Remove IPv6 bind and change wildcard to localhost
+        # Remove IPv6 bind (always - internal port should be localhost only)
         sed -i '/bind \[::\]:60415/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg
+        
+        # Change wildcard to localhost (internal port - always localhost only)
         sed -i 's/bind \*:60415/bind 127.0.0.1:60415/' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg
         
         # Make immutable
@@ -203,11 +222,16 @@ EOFCONFIG
       
       # Port 60418 (XCaptcha HTTPS)
       if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg" ]; then
+        # Remove immutable flag if set (from previous runs)
+        chattr -i /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
+        
         cp /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg \
            /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg.backup
         
-        # Remove IPv6 bind and change wildcard to localhost
+        # Remove IPv6 bind (always - internal port should be localhost only)
         sed -i '/bind \[::\]:60418/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg
+        
+        # Change wildcard to localhost (internal port - always localhost only)
         sed -i 's/bind \*:60418/bind 127.0.0.1:60418/' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg
         
         # Make immutable
@@ -218,11 +242,13 @@ EOFCONFIG
         log_and_console "⚠ xcaptcha_https_multiport.cfg not found - port 60418 may not be restricted"
       fi
       
-      # Restart BitNinja to apply all changes
-      log_and_console "Restarting BitNinja to apply configuration..."
+      log_and_console "✓ All BitNinja config files made immutable"
+      
+      # Final restart to apply all changes (configs are now immutable)
+      log_and_console "Performing final BitNinja restart with immutable configs..."
       systemctl restart bitninja
       sleep 10
-      log_and_console "✓ BitNinja restarted with new configuration"
+      log_and_console "✓ BitNinja restarted with final configuration"
     else
       log_and_console "⚠ WARNING: Failed to add SSL certificate to BitNinja"
       log_and_console "You may need to add it manually after deployment"

@@ -36,7 +36,31 @@ net.ipv4.tcp_syncookies = 1
 net.ipv4.tcp_rfc1337 = 1
 EOF
 
-# SSH hardening
+# IPv6 disablement (must be done BEFORE SSH hardening)
+if [ "$DISABLE_IPV6" = "true" ]; then
+  log_and_console "Disabling IPv6 system-wide..."
+  
+  # Disable IPv6 via sysctl (immediate effect)
+  echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> /etc/sysctl.conf
+  echo 'net.ipv6.conf.default.disable_ipv6 = 1' >> /etc/sysctl.conf
+  echo 'net.ipv6.conf.lo.disable_ipv6 = 1' >> /etc/sysctl.conf
+  
+  # Apply immediately
+  sysctl -w net.ipv6.conf.all.disable_ipv6=1
+  sysctl -w net.ipv6.conf.default.disable_ipv6=1
+  sysctl -w net.ipv6.conf.lo.disable_ipv6=1
+  
+  # Disable IPv6 in GRUB (permanent after reboot)
+  echo 'GRUB_CMDLINE_LINUX_DEFAULT="ipv6.disable=1"' >> /etc/default/grub
+  update-grub
+  
+  log_and_console "✓ IPv6 disabled system-wide (active immediately)"
+fi
+
+# Apply all sysctl changes
+sysctl -p
+
+# SSH hardening (after IPv6 configuration)
 cat >> /etc/ssh/sshd_config.d/ssh-hardening.conf << 'EOF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
@@ -47,23 +71,24 @@ X11Forwarding no
 AllowAgentForwarding no
 EOF
 
-# Restart SSH to apply hardening immediately
-systemctl restart sshd
-log_and_console "✓ SSH hardening applied and service restarted"
-
-# IPv6 disablement
+# Configure SSH to respect IPv6 setting
 if [ "$DISABLE_IPV6" = "true" ]; then
-  log_and_console "Disabling IPv6 system-wide..."
-  echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> /etc/sysctl.conf
-  echo 'net.ipv6.conf.default.disable_ipv6 = 1' >> /etc/sysctl.conf
-  echo 'net.ipv6.conf.lo.disable_ipv6 = 1' >> /etc/sysctl.conf
-  echo 'GRUB_CMDLINE_LINUX_DEFAULT="ipv6.disable=1"' >> /etc/default/grub
-  update-grub
-  log_and_console "✓ IPv6 disabled system-wide"
+  echo 'AddressFamily inet' >> /etc/ssh/sshd_config.d/ssh-hardening.conf
+  log_and_console "✓ SSH configured for IPv4 only"
+  
+  # Disable SSH socket activation to prevent IPv6 binding
+  # systemd socket activation creates IPv6 sockets even when IPv6 is disabled
+  systemctl stop ssh.socket 2>/dev/null || true
+  systemctl disable ssh.socket 2>/dev/null || true
+  log_and_console "✓ SSH socket activation disabled"
+else
+  echo 'AddressFamily any' >> /etc/ssh/sshd_config.d/ssh-hardening.conf
+  log_and_console "✓ SSH configured for IPv4 and IPv6"
 fi
 
-# Apply sysctl changes
-sysctl -p
+# Restart SSH to apply hardening immediately (Ubuntu uses 'ssh' not 'sshd')
+systemctl restart ssh
+log_and_console "✓ SSH hardening applied and service restarted"
 
 log_and_console "Configuring fail2ban..."
 

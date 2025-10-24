@@ -68,6 +68,7 @@ write_files:
       export BITNINJA_LICENSE="YOUR_LICENSE_KEY"
       export TIMEZONE="UTC"
       export SERVER_IP="$(hostname -I | awk '{print $1}')"
+      export SERVER_IPV6="$(hostname -I | awk '{for(i=1;i<=NF;i++) if($i ~ /:/) {print $i; exit}}')"
       
       # ===== DATABASE CONFIGURATION =====
       export DB_NAME="nextcloud"

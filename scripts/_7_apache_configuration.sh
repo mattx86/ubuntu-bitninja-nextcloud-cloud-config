@@ -27,13 +27,23 @@ else
   sed -i 's/^Listen 80$/#Listen 80/' /etc/apache2/ports.conf
   sed -i 's/^\([[:space:]]*\)Listen 443$/\1#Listen 443/' /etc/apache2/ports.conf
   
-  # Add localhost-only binding for port 80
+  # Add localhost-only binding for port 80 (IPv4)
   echo "Listen 127.0.0.1:80" >> /etc/apache2/ports.conf
   log_and_console "✓ Added Listen 127.0.0.1:80 to ports.conf"
+  
+  # Add IPv6 localhost binding if IPv6 is enabled
+  if [ "$DISABLE_IPV6" != "true" ]; then
+    echo "Listen [::1]:80" >> /etc/apache2/ports.conf
+    log_and_console "✓ Added Listen [::1]:80 to ports.conf (IPv6 enabled)"
+  fi
 fi
 
-log_and_console "✓ Apache configured for localhost-only binding (127.0.0.1:80)"
-log_and_console "✓ BitNinja handles SSL termination on 0.0.0.0:443"
+if [ "$DISABLE_IPV6" = "true" ]; then
+  log_and_console "✓ Apache configured for localhost-only binding (127.0.0.1:80 - IPv4 only)"
+else
+  log_and_console "✓ Apache configured for localhost-only binding (127.0.0.1:80 and [::1]:80)"
+fi
+log_and_console "✓ BitNinja handles SSL termination on public interface"
 
 log_and_console "Configuring Apache MPM prefork for memory efficiency..."
 # Configure Apache MPM prefork to prevent memory exhaustion

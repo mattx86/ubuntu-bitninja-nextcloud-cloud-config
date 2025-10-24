@@ -89,9 +89,24 @@ log_and_console "Downloading Apache NextCloud configuration..."
 wget --tries=3 --timeout=30 -O /etc/apache2/sites-available/nextcloud.conf "$GITHUB_RAW_URL/conf/nextcloud-apache-vhost.conf" || { log_and_console "ERROR: Failed to download nextcloud-apache-vhost.conf"; exit 1; }
 chown root:root /etc/apache2/sites-available/nextcloud.conf
 chmod 644 /etc/apache2/sites-available/nextcloud.conf
+
+# Substitute variables
 sed -i "s|\$DOMAIN|$DOMAIN|g" /etc/apache2/sites-available/nextcloud.conf
 sed -i "s|\$ADMIN_EMAIL|$ADMIN_EMAIL|g" /etc/apache2/sites-available/nextcloud.conf
 sed -i "s|\$NEXTCLOUD_WEB_DIR|$NEXTCLOUD_WEB_DIR|g" /etc/apache2/sites-available/nextcloud.conf
+
+# Configure VirtualHost for IPv6 if enabled
+if [ "$DISABLE_IPV6" != "true" ]; then
+  log_and_console "Configuring VirtualHost for IPv4 and IPv6..."
+  # Change <VirtualHost 127.0.0.1:80> to <VirtualHost 127.0.0.1:80 [::1]:80>
+  sed -i 's/<VirtualHost 127\.0\.0\.1:80>/<VirtualHost 127.0.0.1:80 [::1]:80>/' /etc/apache2/sites-available/nextcloud.conf
+  # Add ::1 as additional RemoteIPInternalProxy (add line after existing one)
+  sed -i '/RemoteIPInternalProxy 127\.0\.0\.1/a\        RemoteIPInternalProxy ::1' /etc/apache2/sites-available/nextcloud.conf
+  log_and_console "✓ VirtualHost configured for IPv4 and IPv6 localhost"
+else
+  log_and_console "✓ VirtualHost configured for IPv4 localhost only"
+fi
+
 a2ensite nextcloud.conf
 systemctl reload apache2
 log_and_console "✓ Apache virtual host configured"
