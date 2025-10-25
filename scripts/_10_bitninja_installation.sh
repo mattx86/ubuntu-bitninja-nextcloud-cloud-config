@@ -174,7 +174,23 @@ EOFCONFIG
       if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
         log_and_console "✓ Config files generated after ${WAIT_COUNT} seconds"
       else
-        log_and_console "⚠ Timeout waiting for config files (waited 60 seconds)"
+        log_and_console "⚠ Config files not generated after 60 seconds, forcing restart..."
+        systemctl restart bitninja
+        sleep 20
+        
+        # Wait another 60 seconds after forced restart
+        WAIT_COUNT=0
+        while [ ! -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ] && [ $WAIT_COUNT -lt 60 ]; do
+          sleep 1
+          WAIT_COUNT=$((WAIT_COUNT + 1))
+        done
+        
+        if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
+          log_and_console "✓ Config files generated after forced restart (${WAIT_COUNT} seconds)"
+        else
+          log_and_console "⚠ WARNING: Config files still not generated after 120 seconds total"
+          log_and_console "⚠ You may need to manually run: systemctl restart bitninja"
+        fi
       fi
       
       # Now configure BitNinja (after configs are generated)
