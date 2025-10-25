@@ -86,11 +86,14 @@ return array(
             
             // Modules we're using (DO NOT DISABLE)
             // 'SslTerminating',
-            // 'WAFManager',
             // 'MalwareDetection',
             // 'DosDetection',
             // 'SenseLog',
             // 'DefenseRobot',
+            
+            // WAFManager (DISABLED - SslTerminating includes WAF 2.0)
+            // We use SslTerminating which has integrated WAF, not standalone WAFManager
+            'WAFManager',
             
             // Unused modules (DISABLED)
             'AntiFlood',
@@ -187,7 +190,9 @@ EOFCONFIG
            /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg.backup
         
         # Fix backend to point to Apache on 127.0.0.1:80 (not *:443)
-        sed -i 's/server\s\+origin-backend\s\+\*:443.*/server origin-backend 127.0.0.1:80 check backup/' \
+        # BitNinja generates: server origin-backend *:443 ssl verify none backup no-check-ssl ssl sni req.hdr(host)
+        # We need: server origin-backend 127.0.0.1:80 check backup
+        sed -i 's/server[[:space:]]\+origin-backend[[:space:]]\+\*:443.*/server\torigin-backend 127.0.0.1:80 check backup/' \
           /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
         
         # Remove IPv6 bind lines only if IPv6 is disabled
@@ -202,7 +207,7 @@ EOFCONFIG
         chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
         
         log_and_console "✓ BitNinja backend configured to forward to Apache (127.0.0.1:80)"
-        log_and_console "✓ IPv6 binds removed from ssl_termiantion.cfg"
+        log_and_console "✓ ssl_termiantion.cfg configured and made immutable"
       else
         log_and_console "⚠ WARNING: ssl_termiantion.cfg not found"
       fi

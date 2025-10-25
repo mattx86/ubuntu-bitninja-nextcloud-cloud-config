@@ -585,6 +585,41 @@ curl -k https://your-domain.com/
     sudo ss -tlnp | grep bitninja | grep -E ':(60415|60418)'
     ```
 
+### HTTP 400 Bad Request Error
+
+If you get "HTTP/2 400" when accessing your domain via HTTPS:
+
+**Cause:** BitNinja's HAProxy backend is misconfigured and pointing to itself (`*:443`) instead of Apache (`127.0.0.1:80`).
+
+**Fix:**
+```bash
+# Remove immutable flag
+sudo chattr -i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+
+# Fix the backend configuration
+sudo sed -i 's/server[[:space:]]\+origin-backend[[:space:]]\+\*:443.*/server\torigin-backend 127.0.0.1:80 check backup/' \
+  /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+
+# Verify the fix
+grep "server origin-backend" /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+# Should show: server origin-backend 127.0.0.1:80 check backup
+
+# Make immutable again
+sudo chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+
+# Restart BitNinja
+sudo systemctl restart bitninja
+
+# Wait 10 seconds and test
+sleep 10
+curl -I https://your-domain.com/
+```
+
+**Verification:**
+- First curl attempt may show 503 (BitNinja still starting)
+- Second curl should show 302 redirect to Nextcloud login
+- Headers should include `server: Apache`
+
 ### Can't Ping Out / No Outbound Connectivity
 
 If you can't ping external hosts or access HTTP/HTTPS from the server:
@@ -886,6 +921,7 @@ BitNinja uses a **mixed binding strategy** for security:
 - BitNinja's configuration files regenerate automatically, but we make them **immutable** using `chattr +i`
 - Public ports (443, 60413) use UFW firewall to restrict access to `SERVER_IP` only
 - Internal ports (60415, 60418) are bound to localhost for defense-in-depth security
+- Backend configuration (`ssl_termiantion.cfg`) is fixed to point to Apache (`127.0.0.1:80`) and made immutable
 - This provides multiple layers of protection
 
 **Security Model:**
@@ -910,6 +946,25 @@ Internet → UFW Firewall (allows only SERVER_IP:443) → BitNinja (0.0.0.0:443)
 - ✅ All traffic passes through WAF before reaching Apache
 - ✅ Defense in depth security model
 
+**Immutable Configuration Files:**
+
+The following BitNinja HAProxy config files are made immutable to prevent automatic regeneration:
+
+1. **`ssl_termiantion.cfg`** (note: typo in BitNinja's filename)
+   - **Purpose:** Main SSL termination and WAF frontend/backend configuration
+   - **Critical Fix:** Backend points to Apache (`127.0.0.1:80`), not itself (`*:443`)
+   - **IPv6:** Removed if `DISABLE_IPV6=true`
+
+2. **`waf_proxy_http.cfg`**
+   - **Purpose:** WAF HTTP proxy (port 60415)
+   - **Binding:** `127.0.0.1:60415` (localhost only)
+   - **IPv6:** Always removed (internal port)
+
+3. **`xcaptcha_https_multiport.cfg`**
+   - **Purpose:** XCaptcha HTTPS (port 60418)
+   - **Binding:** `127.0.0.1:60418` (localhost only)
+   - **IPv6:** Always removed (internal port)
+
 **Verification:**
 ```bash
 # Check BitNinja public ports (should listen on 0.0.0.0)
@@ -923,6 +978,10 @@ sudo ss -tlnp | grep bitninja | grep -E ':(60415|60418)'
 # Verify immutable config files
 sudo lsattr /opt/bitninja-ssl-termination/etc/haproxy/configs/*.cfg
 # Should show 'i' flag (immutable) on ssl_termiantion.cfg, waf_proxy_http.cfg, xcaptcha_https_multiport.cfg
+
+# Verify backend configuration
+grep "server origin-backend" /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+# Should show: server origin-backend 127.0.0.1:80 check backup
 ```
 
 ---
