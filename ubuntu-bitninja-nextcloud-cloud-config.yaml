@@ -274,6 +274,7 @@ runcmd:
   - /root/system-setup/scripts/_15_system_verification.sh
   - /root/system-setup/scripts/_16_service_security_verification.sh
   - /root/system-setup/scripts/_17_cleanup.sh
+  - /root/system-setup/scripts/_18_bitninja_final_config.sh
 
   # Final deployment completion message
   - |
