@@ -140,14 +140,20 @@ EOFCONFIG
   log_and_console "Configuring SSL certificates for BitNinja..."
   if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
     log_and_console "Adding SSL certificate for $DOMAIN to BitNinja..."
-    if bitninjacli --module=SslTerminating --add-cert \
+    
+    # Add certificate (capture output for debugging, don't suppress errors)
+    CERT_ADD_OUTPUT=$(bitninjacli --module=SslTerminating --add-cert \
       --domain="$DOMAIN" \
       --certFile="/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
-      --keyFile="/etc/letsencrypt/live/$DOMAIN/privkey.pem" 2>/dev/null; then
+      --keyFile="/etc/letsencrypt/live/$DOMAIN/privkey.pem" 2>&1)
+    CERT_ADD_EXIT=$?
+    
+    if [ $CERT_ADD_EXIT -eq 0 ]; then
       log_and_console "✓ SSL certificate added to BitNinja"
+      log_and_console "Certificate output: $CERT_ADD_OUTPUT"
       
       # Force BitNinja to reload certificates
-      bitninjacli --module=SslTerminating --force-recollect 2>/dev/null
+      bitninjacli --module=SslTerminating --force-recollect
       log_and_console "✓ BitNinja certificates reloaded"
       
       # Configure BitNinja to listen on port 443 (not 60414)
@@ -188,8 +194,29 @@ EOFCONFIG
         if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
           log_and_console "✓ Config files generated after forced restart (${WAIT_COUNT} seconds)"
         else
-          log_and_console "⚠ WARNING: Config files still not generated after 120 seconds total"
-          log_and_console "⚠ You may need to manually run: systemctl restart bitninja"
+          log_and_console "⚠ Config files not generated after 120 seconds, trying final restart..."
+          
+          # Third attempt: Force recollect again and restart
+          bitninjacli --module=SslTerminating --force-recollect
+          systemctl restart bitninja
+          sleep 30
+          
+          # Wait another 60 seconds after final restart
+          WAIT_COUNT=0
+          while [ ! -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ] && [ $WAIT_COUNT -lt 60 ]; do
+            sleep 1
+            WAIT_COUNT=$((WAIT_COUNT + 1))
+          done
+          
+          if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
+            log_and_console "✓ Config files generated after final restart (${WAIT_COUNT} seconds)"
+          else
+            log_and_console "⚠ WARNING: Config files still not generated after 180 seconds total"
+            log_and_console "⚠ Manual intervention required:"
+            log_and_console "   bitninjacli --module=SslTerminating --force-recollect"
+            log_and_console "   systemctl restart bitninja"
+            log_and_console "   # Wait 30 seconds, then check: ls -la /opt/bitninja-ssl-termination/etc/haproxy/configs/"
+          fi
         fi
       fi
       
@@ -283,8 +310,14 @@ EOFCONFIG
       sleep 10
       log_and_console "✓ BitNinja restarted with final configuration"
     else
-      log_and_console "⚠ WARNING: Failed to add SSL certificate to BitNinja"
-      log_and_console "You may need to add it manually after deployment"
+      log_and_console "⚠ WARNING: Failed to add SSL certificate to BitNinja (exit code: $CERT_ADD_EXIT)"
+      log_and_console "Certificate addition output: $CERT_ADD_OUTPUT"
+      log_and_console "⚠ You will need to add it manually after deployment:"
+      log_and_console "   bitninjacli --module=SslTerminating --add-cert \\"
+      log_and_console "     --domain=\"$DOMAIN\" \\"
+      log_and_console "     --certFile=\"/etc/letsencrypt/live/$DOMAIN/fullchain.pem\" \\"
+      log_and_console "     --keyFile=\"/etc/letsencrypt/live/$DOMAIN/privkey.pem\""
+      log_and_console "   systemctl restart bitninja"
     fi
   else
     log_and_console "⚠ No SSL certificate found yet for $DOMAIN"
