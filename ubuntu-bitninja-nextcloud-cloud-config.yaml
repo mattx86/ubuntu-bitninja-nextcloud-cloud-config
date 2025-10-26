@@ -250,6 +250,7 @@ runcmd:
     wget --tries=3 --timeout=30 --show-progress -O _15_system_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_15_system_verification.sh || { echo "ERROR: Failed to download _15_system_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     wget --tries=3 --timeout=30 --show-progress -O _16_service_security_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_16_service_security_verification.sh || { echo "ERROR: Failed to download _16_service_security_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     wget --tries=3 --timeout=30 --show-progress -O _17_cleanup.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_17_cleanup.sh || { echo "ERROR: Failed to download _17_cleanup.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _18_bitninja_final_config.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_18_bitninja_final_config.sh || { echo "ERROR: Failed to download _18_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     
     # Make all scripts executable with secure permissions (700)
     chmod 700 /root/system-setup/scripts/*.sh
@@ -280,6 +281,10 @@ runcmd:
     CONSOLE="/dev/tty1"
     echo "=== DEPLOYMENT COMPLETE ===" | tee -a "$LOG_FILE" | tee "$CONSOLE"
     echo "✓ All components configured and ready for use." | tee -a "$LOG_FILE" | tee "$CONSOLE"
+    echo "" | tee -a "$LOG_FILE" | tee "$CONSOLE"
+    echo "⚠ IMPORTANT: If BitNinja is not listening on port 443, run:" | tee -a "$LOG_FILE" | tee "$CONSOLE"
+    echo "   sudo bash /root/system-setup/scripts/_18_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"
+    echo "" | tee -a "$LOG_FILE" | tee "$CONSOLE"
 
 # ===== FINAL MESSAGE =====
-final_message: "Nextcloud + BitNinja setup complete! See README.md for comprehensive instructions and next steps."
+final_message: "Nextcloud + BitNinja setup complete! If BitNinja not on port 443, run: sudo bash /root/system-setup/scripts/_18_bitninja_final_config.sh"
