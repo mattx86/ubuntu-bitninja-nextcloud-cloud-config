@@ -251,6 +251,7 @@ runcmd:
     wget --tries=3 --timeout=30 --show-progress -O _16_service_security_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_16_service_security_verification.sh || { echo "ERROR: Failed to download _16_service_security_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     wget --tries=3 --timeout=30 --show-progress -O _17_cleanup.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_17_cleanup.sh || { echo "ERROR: Failed to download _17_cleanup.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     wget --tries=3 --timeout=30 --show-progress -O _18_bitninja_final_config.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_18_bitninja_final_config.sh || { echo "ERROR: Failed to download _18_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _19_unattended_upgrades.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_19_unattended_upgrades.sh || { echo "ERROR: Failed to download _19_unattended_upgrades.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     
     # Make all scripts executable with secure permissions (700)
     chmod 700 /root/system-setup/scripts/*.sh
@@ -275,6 +276,7 @@ runcmd:
   - /root/system-setup/scripts/_16_service_security_verification.sh
   - /root/system-setup/scripts/_17_cleanup.sh
   - /root/system-setup/scripts/_18_bitninja_final_config.sh
+  - /root/system-setup/scripts/_19_unattended_upgrades.sh
 
   # Final deployment completion message
   - |

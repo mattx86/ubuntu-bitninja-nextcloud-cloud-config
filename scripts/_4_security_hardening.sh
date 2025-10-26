@@ -120,10 +120,5 @@ chmod 644 /etc/fail2ban/filter.d/bitninja-captcha.conf
 systemctl start fail2ban && systemctl enable fail2ban
 log_and_console "✓ fail2ban configured for SSH, BitNinja, and BitNinja protection"
 
-log_and_console "Downloading unattended upgrades configuration..."
-wget --tries=3 --timeout=30 -O /etc/apt/apt.conf.d/50unattended-upgrades "$GITHUB_RAW_URL/conf/50ubuntu-unattended-upgrades" || { log_and_console "ERROR: Failed to download 50ubuntu-unattended-upgrades"; exit 1; }
-chown root:root /etc/apt/apt.conf.d/50unattended-upgrades
-chmod 644 /etc/apt/apt.conf.d/50unattended-upgrades
-log_and_console "✓ Automatic security updates configured"
-
 log_and_console "✓ Security hardening completed"
+log_and_console "Note: Unattended upgrades will be configured by script _19 (after all package installations)"

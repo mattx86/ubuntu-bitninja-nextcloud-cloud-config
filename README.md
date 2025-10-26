@@ -1107,8 +1107,6 @@ Found an issue or improvement? Contributions welcome!
 
 **Compatible with:** Ubuntu 24.04 LTS, Nextcloud Latest, PHP 8.3, MariaDB 10.x, BitNinja WAF 2.0
 
-**Last Updated:** October 2025
-
 **Key Features:**
 - 🔒 **Production-Ready Security:** BitNinja WAF 2.0 with SSL Terminating
 - 🔐 **Automated SSL:** Let's Encrypt certificates via certbot with auto-renewal

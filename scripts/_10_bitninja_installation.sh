@@ -148,8 +148,13 @@ EOFCONFIG
       
       # Configure BitNinja to listen on port 443 (not 60414)
       log_and_console "Configuring BitNinja to listen on port 443..."
-      sed -i 's/^WafFrontEndSettings\[port\]=60414$/WafFrontEndSettings[port]=443/' /etc/bitninja/SslTerminating/config.ini
-      log_and_console "✓ BitNinja configured to listen on port 443"
+      if [ -f "/etc/bitninja/SslTerminating/config.ini" ]; then
+        sed -i 's/^WafFrontEndSettings\[port\]=60414$/WafFrontEndSettings[port]=443/' /etc/bitninja/SslTerminating/config.ini
+        log_and_console "✓ BitNinja configured to listen on port 443"
+      else
+        log_and_console "⚠ WARNING: /etc/bitninja/SslTerminating/config.ini not found yet"
+        log_and_console "Port 443 configuration will be handled by script _18"
+      fi
       
       # Restart BitNinja FIRST to let it generate all config files
       log_and_console "Restarting BitNinja to generate configuration files..."
