@@ -201,11 +201,18 @@ EOFCONFIG
           if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
             log_and_console "✓ Config files generated after final restart (${WAIT_COUNT} seconds)"
           else
-            log_and_console "⚠ WARNING: Config files still not generated after 180 seconds total"
-            log_and_console "⚠ Manual intervention required:"
-            log_and_console "   bitninjacli --module=SslTerminating --force-recollect"
-            log_and_console "   systemctl restart bitninja"
-            log_and_console "   # Wait 30 seconds, then check: ls -la /opt/bitninja-ssl-termination/etc/haproxy/configs/"
+          log_and_console "⚠ WARNING: Config files still not generated after 180 seconds total"
+          log_and_console "⚠ This is normal - BitNinja needs more time to stabilize after initial installation"
+          log_and_console "⚠ Run this script after deployment completes:"
+          log_and_console "   sudo bash /root/system-setup/scripts/_18_bitninja_final_config.sh"
+          log_and_console ""
+          log_and_console "Or manually:"
+          log_and_console "   bitninjacli --module=SslTerminating --add-cert \\"
+          log_and_console "     --domain=$DOMAIN \\"
+          log_and_console "     --certFile=/etc/letsencrypt/live/$DOMAIN/fullchain.pem \\"
+          log_and_console "     --keyFile=/etc/letsencrypt/live/$DOMAIN/privkey.pem"
+          log_and_console "   bitninjacli --module=SslTerminating --force-recollect"
+          log_and_console "   systemctl restart bitninja"
           fi
         fi
       fi
