@@ -229,8 +229,9 @@ EOFCONFIG
         
         # Remove IPv6 bind lines only if IPv6 is disabled
         if [ "$DISABLE_IPV6" = "true" ]; then
-          sed -i '/bind \[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
-          log_and_console "✓ IPv6 binds removed (IPv6 disabled)"
+          # Remove ALL IPv6 binds (matches any whitespace before [::])
+          sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg
+          log_and_console "✓ IPv6 binds removed from ssl_termiantion.cfg (IPv6 disabled)"
         else
           log_and_console "✓ IPv6 binds preserved (IPv6 enabled)"
         fi
@@ -256,7 +257,7 @@ EOFCONFIG
            /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg.backup
         
         # Remove IPv6 bind (always - internal port should be localhost only)
-        sed -i '/bind \[::\]:60415/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg
+        sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg
         
         # Change wildcard to localhost (internal port - always localhost only)
         sed -i 's/bind \*:60415/bind 127.0.0.1:60415/' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg
@@ -278,7 +279,7 @@ EOFCONFIG
            /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg.backup
         
         # Remove IPv6 bind (always - internal port should be localhost only)
-        sed -i '/bind \[::\]:60418/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg
+        sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg
         
         # Change wildcard to localhost (internal port - always localhost only)
         sed -i 's/bind \*:60418/bind 127.0.0.1:60418/' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg
@@ -298,6 +299,17 @@ EOFCONFIG
       systemctl restart bitninja
       sleep 10
       log_and_console "✓ BitNinja restarted with final configuration"
+      
+      # Verify IPv6 is properly removed if disabled
+      if [ "$DISABLE_IPV6" = "true" ]; then
+        IPV6_COUNT=$(ss -tlnp | grep bitninja | grep -c '\[::\]' || true)
+        if [ "$IPV6_COUNT" -eq 0 ]; then
+          log_and_console "✓ IPv6 binds successfully removed (verified)"
+        else
+          log_and_console "⚠ WARNING: Found $IPV6_COUNT IPv6 binds still active"
+          log_and_console "  This may require manual cleanup after deployment"
+        fi
+      fi
     else
       log_and_console "⚠ WARNING: Failed to add SSL certificate to BitNinja (exit code: $CERT_ADD_EXIT)"
       log_and_console "Certificate addition output: $CERT_ADD_OUTPUT"
