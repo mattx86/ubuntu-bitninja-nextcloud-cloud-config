@@ -155,11 +155,8 @@ else
   log_and_console "⚠ WARNING: Port 60418 may not be bound to localhost"
 fi
 
-# Make configs immutable
-chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
-chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
-chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
-log_and_console "✓ Config files made immutable"
+# DON'T make configs immutable yet - BitNinja will regenerate them on restart
+log_and_console "Config files modified, preparing for restart..."
 
 # Final restart
 log_and_console "Performing final BitNinja restart..."
@@ -181,6 +178,42 @@ if [ $WAIT_COUNT -gt 0 ]; then
 else
   log_and_console "✓ BitNinja started immediately"
 fi
+
+# NOW re-apply our fixes AFTER BitNinja has regenerated configs
+log_and_console "Re-applying configuration fixes after BitNinja restart..."
+
+# Remove immutable flags (in case they were set)
+chattr -i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
+chattr -i /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
+chattr -i /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
+
+# Re-apply backend fix
+sed -i 's/server[[:space:]]\+origin-backend[[:space:]]\+\*:443.*/server\torigin-backend 127.0.0.1:80 check backup/' \
+  /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
+
+# Re-apply port bindings
+sed -i 's/bind \*:60415/bind 127.0.0.1:60415/' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
+sed -i 's/bind \*:60418/bind 127.0.0.1:60418/' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
+
+# Re-apply IPv6 removal
+sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
+sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
+sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
+sed -i '/bind[[:space:]]\+:::/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
+sed -i '/bind[[:space:]]\+:::/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
+sed -i '/bind[[:space:]]\+:::/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
+
+# NOW make them immutable
+chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
+chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
+chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
+log_and_console "✓ Config files fixed and made immutable after restart"
+
+# Reload HAProxy to apply the post-restart fixes
+log_and_console "Reloading BitNinja HAProxy to apply fixes..."
+systemctl reload bitninja 2>/dev/null || systemctl restart bitninja
+sleep 5
+log_and_console "✓ BitNinja reloaded with final configuration"
 
 # Verify
 log_and_console "Verifying configuration..."
