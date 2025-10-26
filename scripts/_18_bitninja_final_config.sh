@@ -112,14 +112,21 @@ chattr -i /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multi
 sed -i 's/server[[:space:]]\+origin-backend[[:space:]]\+\*:443.*/server\torigin-backend 127.0.0.1:80 check backup/' \
   /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
 
-# Remove IPv6 binds (with error handling)
+# Fix internal port bindings FIRST (before removing IPv6)
+# This ensures we change wildcard binds to localhost before removing IPv6 lines
+sed -i 's/bind \*:60415/bind 127.0.0.1:60415/' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
+sed -i 's/bind \*:60418/bind 127.0.0.1:60418/' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
+
+# Remove ALL IPv6 binds (with error handling)
+# This removes lines like "bind :::60415" and "bind [::]:443"
 sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
 sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
 sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
 
-# Fix internal port bindings (with error handling)
-sed -i 's/bind \*:60415/bind 127.0.0.1:60415/' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
-sed -i 's/bind \*:60418/bind 127.0.0.1:60418/' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
+# Also remove any remaining wildcard IPv6 binds (:::port format without brackets)
+sed -i '/bind[[:space:]]\+:::/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
+sed -i '/bind[[:space:]]\+:::/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
+sed -i '/bind[[:space:]]\+:::/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
 
 # Verify changes were applied
 log_and_console "Verifying configuration changes..."
