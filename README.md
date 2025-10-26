@@ -326,8 +326,8 @@ To use 2GB settings, uncomment the 2GB configuration lines in the config section
 - **SSL Terminating Module:** Handles HTTPS traffic and forwards to Apache
 - **Let's Encrypt Integration:** Automatic SSL certificate acquisition and renewal
 - **Module Configuration:** All modules enabled by default except those in `disabledModules` array
-- **Enabled Modules:** System, ConfigParser, DataProvider, SslTerminating, WAFManager, MalwareDetection, DosDetection, SenseLog, DefenseRobot (enabled by not being in disabledModules)
-- **Disabled Modules (via config.php):** IpFilter, AntiFlood, AuditManager, CaptchaFtp, CaptchaHttp, CaptchaSmtp, MalwareScanner, OutboundHoneypot, Patcher, PortHoneypot, ProxyFilter, SandboxScanner, SenseWebHoneypot, Shogun, SiteProtection, SpamDetection, SqlScanner, TalkBack, WAF3, ProcessAnalysis
+- **Enabled Modules:** System, DataProvider, SslTerminating (includes WAF 2.0), MalwareDetection, DosDetection, SenseLog, DefenseRobot
+- **Disabled Modules (via config.php):** ConfigParser, WAFManager, IpFilter, AntiFlood, AuditManager, CaptchaFtp, CaptchaHttp, CaptchaSmtp, MalwareScanner, OutboundHoneypot, Patcher, PortHoneypot, ProxyFilter, SandboxScanner, SenseWebHoneypot, Shogun, SiteProtection, SpamDetection, SqlScanner, TalkBack, WAF3, ProcessAnalysis
 - **Firewall Management:** Completely disabled - UFW manages all firewall rules including DNAT
 - **Automatic Cleanup:** Systemd service (`bitninja-remove-firewall-rules.service`) removes BitNinja iptables rules on every BitNinja restart
 
@@ -693,14 +693,13 @@ If you can't ping external hosts or access HTTP/HTTPS from the server:
 2. Check service: `systemctl status bitninja`
 3. Verify license key: `bitninjacli --get-license-key`
 4. Check WAF status: `bitninjacli --module=WAF --status`
-5. Check SSL Terminating: `bitninjacli --module=SslTerminating --status`
-6. Check WAFManager status: `bitninjacli --module=WAFManager --status` (look for `"isSsl": true`)
-7. Check if ConfigParser detected certificates:
+5. Check SSL Terminating (includes WAF 2.0): `bitninjacli --module=SslTerminating --status`
+6. Check if certificates are loaded in BitNinja:
    ```bash
    cat /var/lib/bitninja/ConfigParser/getCerts-report.json
    cat /opt/bitninja-ssl-termination/etc/haproxy/cert-list.lst
    ```
-8. If `"isSsl": false`, manually add certificate and restart BitNinja:
+7. If certificates are missing, manually add certificate and restart BitNinja:
    ```bash
    # Replace your-domain.com with your actual domain
    bitninjacli --module=SslTerminating --add-cert \
@@ -710,10 +709,13 @@ If you can't ping external hosts or access HTTP/HTTPS from the server:
    
    bitninjacli --module=SslTerminating --force-recollect
    systemctl restart bitninja
-   sleep 10
+   sleep 30
    
-   # Verify SSL is now enabled
-   bitninjacli --module=WAFManager --status | grep isSsl
+   # Verify certificates are loaded
+   cat /opt/bitninja-ssl-termination/etc/haproxy/cert-list.lst
+   
+   # Check if listening on port 443
+   netstat -anop | grep LISTEN | grep :443
    ```
 9. Rerun installation: `/root/system-setup/scripts/_9_bitninja_installation.sh`
 

@@ -37,19 +37,8 @@ if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; 
     systemctl restart bitninja
     
     # Wait for BitNinja to fully restart and scan Apache configuration
-    log_and_console "Waiting for BitNinja to restart and scan Apache config (15 seconds)..."
+    log_and_console "Waiting for BitNinja to initialize (15 seconds)..."
     sleep 15
-    
-    # Verify SSL is enabled
-    if bitninjacli --module=WAFManager --status 2>/dev/null | grep -q '"isSsl": true'; then
-      log_and_console "✓ SSL successfully enabled on WAFManager (port 60414 is now HTTPS)"
-    else
-      log_and_console "⚠ WARNING: SSL may not be enabled on WAFManager"
-      log_and_console "Diagnostic commands:"
-      log_and_console "  bitninjacli --module=WAFManager --status"
-      log_and_console "  cat /var/lib/bitninja/ConfigParser/getCerts-report.json"
-      log_and_console "  cat /opt/bitninja-ssl-termination/etc/haproxy/cert-list.lst"
-    fi
   else
     log_and_console "⚠ No SSL certificates found yet - BitNinja will use HTTP mode"
     log_and_console "After obtaining SSL certificates, run:"
@@ -386,11 +375,7 @@ EOFCONFIG
   fi
   
   log_and_console ""
-  log_and_console "WAFManager Status:"
-  bitninjacli --module=WAFManager --status 2>/dev/null | grep -E '(isSsl|enabled|port)' | tee -a "$LOG_FILE" || log_and_console "WAFManager status unavailable"
-  
-  log_and_console ""
-  log_and_console "SslTerminating Status:"
+  log_and_console "SslTerminating Status (includes WAF 2.0):"
   bitninjacli --module=SslTerminating --status 2>/dev/null | grep -E '(enabled|certificate)' | tee -a "$LOG_FILE" || log_and_console "SslTerminating status unavailable"
   
   log_and_console ""
