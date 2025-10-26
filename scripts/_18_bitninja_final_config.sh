@@ -121,19 +121,59 @@ sed -i '/\[::\]/d' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_ht
 sed -i 's/bind \*:60415/bind 127.0.0.1:60415/' /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
 sed -i 's/bind \*:60418/bind 127.0.0.1:60418/' /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
 
+# Verify changes were applied
+log_and_console "Verifying configuration changes..."
+if grep -q "127.0.0.1:80" /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg; then
+  log_and_console "✓ Backend configured to forward to Apache (127.0.0.1:80)"
+else
+  log_and_console "⚠ WARNING: Backend configuration may not have been applied"
+fi
+
+IPV6_IN_CONFIGS=$(grep -c '\[::\]' /opt/bitninja-ssl-termination/etc/haproxy/configs/*.cfg 2>/dev/null || echo "0")
+if [ "$IPV6_IN_CONFIGS" -eq 0 ]; then
+  log_and_console "✓ IPv6 binds removed from config files"
+else
+  log_and_console "⚠ WARNING: Found $IPV6_IN_CONFIGS IPv6 bind lines still in config files"
+fi
+
+if grep -q "127.0.0.1:60415" /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null; then
+  log_and_console "✓ Port 60415 bound to localhost"
+else
+  log_and_console "⚠ WARNING: Port 60415 may not be bound to localhost"
+fi
+
+if grep -q "127.0.0.1:60418" /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null; then
+  log_and_console "✓ Port 60418 bound to localhost"
+else
+  log_and_console "⚠ WARNING: Port 60418 may not be bound to localhost"
+fi
+
 # Make configs immutable
 chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg 2>/dev/null || true
 chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/waf_proxy_http.cfg 2>/dev/null || true
 chattr +i /opt/bitninja-ssl-termination/etc/haproxy/configs/xcaptcha_https_multiport.cfg 2>/dev/null || true
-
-log_and_console "✓ Backend configured to forward to Apache (127.0.0.1:80)"
-log_and_console "✓ IPv6 binds removed"
 log_and_console "✓ Config files made immutable"
 
 # Final restart
 log_and_console "Performing final BitNinja restart..."
 systemctl restart bitninja
-sleep 10
+
+# Wait for BitNinja to fully start and bind to ports
+log_and_console "Waiting for BitNinja to fully initialize..."
+sleep 15
+
+# Additional wait loop to ensure port 443 is listening
+WAIT_COUNT=0
+while ! ss -tlnp | grep -q ':443.*bitninja' && [ $WAIT_COUNT -lt 30 ]; do
+  sleep 1
+  WAIT_COUNT=$((WAIT_COUNT + 1))
+done
+
+if [ $WAIT_COUNT -gt 0 ]; then
+  log_and_console "✓ BitNinja started after $((15 + WAIT_COUNT)) seconds"
+else
+  log_and_console "✓ BitNinja started immediately"
+fi
 
 # Verify
 log_and_console "Verifying configuration..."

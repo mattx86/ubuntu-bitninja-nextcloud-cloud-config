@@ -156,74 +156,22 @@ EOFCONFIG
         log_and_console "Port 443 configuration will be handled by script _18"
       fi
       
-      # Restart BitNinja FIRST to let it generate all config files
-      log_and_console "Restarting BitNinja to generate configuration files..."
+      # Restart BitNinja to apply certificate
+      log_and_console "Restarting BitNinja to apply certificate..."
       systemctl restart bitninja
-      sleep 15
-      log_and_console "✓ BitNinja restarted, waiting for config generation..."
+      sleep 10
+      log_and_console "✓ BitNinja restarted"
       
-      # Wait for all config files to be generated
-      log_and_console "Waiting for BitNinja to generate all config files..."
-      
-      # Wait up to 60 seconds for ssl_termiantion.cfg to be created
-      WAIT_COUNT=0
-      while [ ! -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ] && [ $WAIT_COUNT -lt 60 ]; do
-        sleep 1
-        WAIT_COUNT=$((WAIT_COUNT + 1))
-      done
-      
+      # Check if config files generated (optional - script _18 will handle if not)
       if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
-        log_and_console "✓ Config files generated after ${WAIT_COUNT} seconds"
+        log_and_console "✓ BitNinja config files generated successfully"
       else
-        log_and_console "⚠ Config files not generated after 60 seconds, forcing restart..."
-        systemctl restart bitninja
-        sleep 20
-        
-        # Wait another 60 seconds after forced restart
-        WAIT_COUNT=0
-        while [ ! -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ] && [ $WAIT_COUNT -lt 60 ]; do
-          sleep 1
-          WAIT_COUNT=$((WAIT_COUNT + 1))
-        done
-        
-        if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
-          log_and_console "✓ Config files generated after forced restart (${WAIT_COUNT} seconds)"
-        else
-          log_and_console "⚠ Config files not generated after 120 seconds, trying final restart..."
-          
-          # Third attempt: Force recollect again and restart
-          bitninjacli --module=SslTerminating --force-recollect
-          systemctl restart bitninja
-          sleep 30
-          
-          # Wait another 60 seconds after final restart
-          WAIT_COUNT=0
-          while [ ! -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ] && [ $WAIT_COUNT -lt 60 ]; do
-            sleep 1
-            WAIT_COUNT=$((WAIT_COUNT + 1))
-          done
-          
-          if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
-            log_and_console "✓ Config files generated after final restart (${WAIT_COUNT} seconds)"
-          else
-          log_and_console "⚠ WARNING: Config files still not generated after 180 seconds total"
-          log_and_console "⚠ This is normal - BitNinja needs more time to stabilize after initial installation"
-          log_and_console "⚠ Run this script after deployment completes:"
-          log_and_console "   sudo bash /root/system-setup/scripts/_18_bitninja_final_config.sh"
-          log_and_console ""
-          log_and_console "Or manually:"
-          log_and_console "   bitninjacli --module=SslTerminating --add-cert \\"
-          log_and_console "     --domain=$DOMAIN \\"
-          log_and_console "     --certFile=/etc/letsencrypt/live/$DOMAIN/fullchain.pem \\"
-          log_and_console "     --keyFile=/etc/letsencrypt/live/$DOMAIN/privkey.pem"
-          log_and_console "   bitninjacli --module=SslTerminating --force-recollect"
-          log_and_console "   systemctl restart bitninja"
-          fi
-        fi
+        log_and_console "⚠ BitNinja config files not generated yet (this is normal during initial deployment)"
+        log_and_console "Script _18 will handle final configuration after system stabilizes"
       fi
       
-      # Note: BitNinja config files are not generated during initial deployment
-      # All configuration (backend, IPv6 removal, port bindings) will be handled by script _18
+      # Note: All final configuration (backend, IPv6 removal, port bindings, verification)
+      # is handled by script _18 which runs after the system has stabilized
     else
       log_and_console "⚠ WARNING: Failed to add SSL certificate to BitNinja (exit code: $CERT_ADD_EXIT)"
       log_and_console "Certificate addition output: $CERT_ADD_OUTPUT"
