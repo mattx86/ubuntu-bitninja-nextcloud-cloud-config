@@ -61,22 +61,39 @@ bitninjacli --module=SslTerminating --force-recollect
 log_and_console "Restarting BitNinja to generate config files..."
 systemctl restart bitninja
 
-# Wait for config generation (should be fast now that system is stable)
+# Wait for config generation with retry logic
 log_and_console "Waiting for config file generation..."
-WAIT_COUNT=0
-while [ ! -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ] && [ $WAIT_COUNT -lt 60 ]; do
-  sleep 1
-  WAIT_COUNT=$((WAIT_COUNT + 1))
-done
+ATTEMPT=1
+MAX_ATTEMPTS=3
 
-if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
-  log_and_console "✓ Config files generated after ${WAIT_COUNT} seconds"
-else
-  log_and_console "⚠ Config files not generated after 60 seconds"
-  log_and_console "This is unusual. Please check BitNinja logs:"
-  log_and_console "  tail -50 /var/log/bitninja/error.log"
-  exit 1
-fi
+while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+  log_and_console "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
+  
+  WAIT_COUNT=0
+  while [ ! -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ] && [ $WAIT_COUNT -lt 60 ]; do
+    sleep 1
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+  done
+  
+  if [ -f "/opt/bitninja-ssl-termination/etc/haproxy/configs/ssl_termiantion.cfg" ]; then
+    log_and_console "✓ Config files generated after ${WAIT_COUNT} seconds (attempt $ATTEMPT)"
+    break
+  else
+    if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+      log_and_console "⚠ Config files not generated after 60 seconds, retrying..."
+      bitninjacli --module=SslTerminating --force-recollect
+      systemctl restart bitninja
+      sleep 30
+      ATTEMPT=$((ATTEMPT + 1))
+    else
+      log_and_console "⚠ Config files not generated after $MAX_ATTEMPTS attempts (180 seconds total)"
+      log_and_console "⚠ BitNinja may need more time to stabilize. You can:"
+      log_and_console "   1. Wait 5 minutes and re-run this script"
+      log_and_console "   2. Check logs: tail -50 /var/log/bitninja/error.log"
+      exit 1
+    fi
+  fi
+done
 
 # Fix backend configuration
 log_and_console "Configuring BitNinja backend and removing IPv6..."
