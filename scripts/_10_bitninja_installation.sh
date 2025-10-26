@@ -131,10 +131,11 @@ EOFCONFIG
     log_and_console "Adding SSL certificate for $DOMAIN to BitNinja..."
     
     # Add certificate (capture output for debugging, don't suppress errors)
+    # NOTE: Do NOT use quotes around file paths - BitNinja CLI doesn't handle them correctly
     CERT_ADD_OUTPUT=$(bitninjacli --module=SslTerminating --add-cert \
-      --domain="$DOMAIN" \
-      --certFile="/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
-      --keyFile="/etc/letsencrypt/live/$DOMAIN/privkey.pem" 2>&1)
+      --domain=$DOMAIN \
+      --certFile=/etc/letsencrypt/live/$DOMAIN/fullchain.pem \
+      --keyFile=/etc/letsencrypt/live/$DOMAIN/privkey.pem 2>&1)
     CERT_ADD_EXIT=$?
     
     if [ $CERT_ADD_EXIT -eq 0 ]; then
@@ -313,11 +314,12 @@ EOFCONFIG
     else
       log_and_console "⚠ WARNING: Failed to add SSL certificate to BitNinja (exit code: $CERT_ADD_EXIT)"
       log_and_console "Certificate addition output: $CERT_ADD_OUTPUT"
-      log_and_console "⚠ You will need to add it manually after deployment:"
+      log_and_console "⚠ You will need to add it manually after deployment (NOTE: no quotes around paths):"
       log_and_console "   bitninjacli --module=SslTerminating --add-cert \\"
-      log_and_console "     --domain=\"$DOMAIN\" \\"
-      log_and_console "     --certFile=\"/etc/letsencrypt/live/$DOMAIN/fullchain.pem\" \\"
-      log_and_console "     --keyFile=\"/etc/letsencrypt/live/$DOMAIN/privkey.pem\""
+      log_and_console "     --domain=$DOMAIN \\"
+      log_and_console "     --certFile=/etc/letsencrypt/live/$DOMAIN/fullchain.pem \\"
+      log_and_console "     --keyFile=/etc/letsencrypt/live/$DOMAIN/privkey.pem"
+      log_and_console "   bitninjacli --module=SslTerminating --force-recollect"
       log_and_console "   systemctl restart bitninja"
     fi
   else
