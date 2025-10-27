@@ -261,21 +261,20 @@ runcmd:
     wget --tries=3 --timeout=30 --show-progress -O _3_package_installation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_3_package_installation.sh || { echo "ERROR: Failed to download _3_package_installation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     wget --tries=3 --timeout=30 --show-progress -O _4_firewall_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_4_firewall_configuration.sh || { echo "ERROR: Failed to download _4_firewall_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     wget --tries=3 --timeout=30 --show-progress -O _5_security_hardening.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_5_security_hardening.sh || { echo "ERROR: Failed to download _5_security_hardening.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _6_system_update.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_6_system_update.sh || { echo "ERROR: Failed to download _6_system_update.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _7_php_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_7_php_configuration.sh || { echo "ERROR: Failed to download _7_php_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _8_apache_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_8_apache_configuration.sh || { echo "ERROR: Failed to download _8_apache_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _9_ssl_certificate.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_9_ssl_certificate.sh || { echo "ERROR: Failed to download _9_ssl_certificate.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _10_redis_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_10_redis_configuration.sh || { echo "ERROR: Failed to download _10_redis_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _11_bitninja_installation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_11_bitninja_installation.sh || { echo "ERROR: Failed to download _11_bitninja_installation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _12_password_generation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_12_password_generation.sh || { echo "ERROR: Failed to download _12_password_generation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _13_mariadb_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_13_mariadb_configuration.sh || { echo "ERROR: Failed to download _13_mariadb_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _14_nextcloud_installation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_14_nextcloud_installation.sh || { echo "ERROR: Failed to download _14_nextcloud_installation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _15_system_optimization.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_15_system_optimization.sh || { echo "ERROR: Failed to download _15_system_optimization.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _16_system_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_16_system_verification.sh || { echo "ERROR: Failed to download _16_system_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _17_service_security_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_17_service_security_verification.sh || { echo "ERROR: Failed to download _17_service_security_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _18_cleanup.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_18_cleanup.sh || { echo "ERROR: Failed to download _18_cleanup.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _19_bitninja_final_config.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_19_bitninja_final_config.sh || { echo "ERROR: Failed to download _19_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _20_unattended_upgrades.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_20_unattended_upgrades.sh || { echo "ERROR: Failed to download _20_unattended_upgrades.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _6_php_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_6_php_configuration.sh || { echo "ERROR: Failed to download _6_php_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _7_apache_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_7_apache_configuration.sh || { echo "ERROR: Failed to download _7_apache_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _8_ssl_certificate.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_8_ssl_certificate.sh || { echo "ERROR: Failed to download _8_ssl_certificate.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _9_redis_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_9_redis_configuration.sh || { echo "ERROR: Failed to download _9_redis_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _10_bitninja_installation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_10_bitninja_installation.sh || { echo "ERROR: Failed to download _10_bitninja_installation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _11_password_generation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_11_password_generation.sh || { echo "ERROR: Failed to download _11_password_generation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _12_mariadb_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_12_mariadb_configuration.sh || { echo "ERROR: Failed to download _12_mariadb_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _13_nextcloud_installation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_13_nextcloud_installation.sh || { echo "ERROR: Failed to download _13_nextcloud_installation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _14_system_optimization.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_14_system_optimization.sh || { echo "ERROR: Failed to download _14_system_optimization.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _15_system_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_15_system_verification.sh || { echo "ERROR: Failed to download _15_system_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _16_service_security_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_16_service_security_verification.sh || { echo "ERROR: Failed to download _16_service_security_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _17_cleanup.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_17_cleanup.sh || { echo "ERROR: Failed to download _17_cleanup.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _18_bitninja_final_config.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_18_bitninja_final_config.sh || { echo "ERROR: Failed to download _18_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _19_unattended_upgrades.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_19_unattended_upgrades.sh || { echo "ERROR: Failed to download _19_unattended_upgrades.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     
     # Make all scripts executable with secure permissions (700)
     chmod 700 /root/system-setup/scripts/*.sh
@@ -287,21 +286,20 @@ runcmd:
   - /root/system-setup/scripts/_3_package_installation.sh
   - /root/system-setup/scripts/_4_firewall_configuration.sh
   - /root/system-setup/scripts/_5_security_hardening.sh
-  - /root/system-setup/scripts/_6_system_update.sh
-  - /root/system-setup/scripts/_7_php_configuration.sh
-  - /root/system-setup/scripts/_8_apache_configuration.sh
-  - /root/system-setup/scripts/_9_ssl_certificate.sh
-  - /root/system-setup/scripts/_10_redis_configuration.sh
-  - /root/system-setup/scripts/_11_bitninja_installation.sh
-  - /root/system-setup/scripts/_12_password_generation.sh
-  - /root/system-setup/scripts/_13_mariadb_configuration.sh
-  - /root/system-setup/scripts/_14_nextcloud_installation.sh
-  - /root/system-setup/scripts/_15_system_optimization.sh
-  - /root/system-setup/scripts/_16_system_verification.sh
-  - /root/system-setup/scripts/_17_service_security_verification.sh
-  - /root/system-setup/scripts/_18_cleanup.sh
-  - /root/system-setup/scripts/_19_bitninja_final_config.sh
-  - /root/system-setup/scripts/_20_unattended_upgrades.sh
+  - /root/system-setup/scripts/_6_php_configuration.sh
+  - /root/system-setup/scripts/_7_apache_configuration.sh
+  - /root/system-setup/scripts/_8_ssl_certificate.sh
+  - /root/system-setup/scripts/_9_redis_configuration.sh
+  - /root/system-setup/scripts/_10_bitninja_installation.sh
+  - /root/system-setup/scripts/_11_password_generation.sh
+  - /root/system-setup/scripts/_12_mariadb_configuration.sh
+  - /root/system-setup/scripts/_13_nextcloud_installation.sh
+  - /root/system-setup/scripts/_14_system_optimization.sh
+  - /root/system-setup/scripts/_15_system_verification.sh
+  - /root/system-setup/scripts/_16_service_security_verification.sh
+  - /root/system-setup/scripts/_17_cleanup.sh
+  - /root/system-setup/scripts/_18_bitninja_final_config.sh
+  - /root/system-setup/scripts/_19_unattended_upgrades.sh
 
   # Final deployment completion message
   - |
@@ -311,8 +309,8 @@ runcmd:
     echo "✓ All components configured and ready for use." | tee -a "$LOG_FILE" | tee "$CONSOLE"
     echo "" | tee -a "$LOG_FILE" | tee "$CONSOLE"
     echo "⚠ IMPORTANT: If BitNinja is not listening on port 443, run:" | tee -a "$LOG_FILE" | tee "$CONSOLE"
-    echo "   sudo bash /root/system-setup/scripts/_19_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"
+    echo "   sudo bash /root/system-setup/scripts/_18_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"
     echo "" | tee -a "$LOG_FILE" | tee "$CONSOLE"
 
 # ===== FINAL MESSAGE =====
-final_message: "Nextcloud + BitNinja setup complete! If BitNinja not on port 443, run: sudo bash /root/system-setup/scripts/_19_bitninja_final_config.sh"
+final_message: "Nextcloud + BitNinja setup complete! If BitNinja not on port 443, run: sudo bash /root/system-setup/scripts/_18_bitninja_final_config.sh"

@@ -11,6 +11,22 @@ export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 export NEEDRESTART_SUSPEND=1
 
+# Update package lists first (critical for fresh systems)
+log_and_console "Updating package lists..."
+apt-get update -y | tee -a "$LOG_FILE"
+log_and_console "✓ Package lists updated"
+
+# Upgrade existing packages before installing new ones
+log_and_console "Upgrading existing packages..."
+apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" | tee -a "$LOG_FILE"
+log_and_console "✓ Package upgrade completed"
+
+# Perform distribution upgrade
+log_and_console "Performing distribution upgrade..."
+apt-get dist-upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" | tee -a "$LOG_FILE"
+log_and_console "✓ Distribution upgrade completed"
+log_and_console ""
+
 # Install packages with progress logging
 log_and_console "Installing system utilities..."
 apt-get install -y \
