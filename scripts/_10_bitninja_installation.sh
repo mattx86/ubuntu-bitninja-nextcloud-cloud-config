@@ -15,7 +15,57 @@ log_and_console "Installing BitNinja..."
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 export NEEDRESTART_SUSPEND=1
+
+# Install BitNinja base system
 /bin/bash "$DOWNLOADS_DIR/bitninja-install.sh" --license_key="$BITNINJA_LICENSE" || { log_and_console "ERROR: BitNinja installation failed (check license key)"; exit 1; }
+
+# Wait for BitNinja to initialize
+log_and_console "Waiting for BitNinja to initialize..."
+sleep 5
+
+# Verify required BitNinja packages are installed
+log_and_console "Verifying BitNinja packages..."
+
+# Check base package
+if dpkg -l | grep -q "^ii.*bitninja[[:space:]]"; then
+  log_and_console "✓ BitNinja base package installed"
+else
+  log_and_console "ERROR: BitNinja base package not found"
+  exit 1
+fi
+
+# The SslTerminating module should automatically install bitninja-ssl-termination when enabled
+# However, we need to ensure it's installed before proceeding
+log_and_console "Checking for SSL Termination module..."
+if ! dpkg -l | grep -q "bitninja-ssl-termination"; then
+  log_and_console "SSL Termination module not found, installing manually..."
+  apt-get update
+  apt-get install -y bitninja-ssl-termination || { log_and_console "ERROR: Failed to install bitninja-ssl-termination"; exit 1; }
+  log_and_console "✓ BitNinja SSL Termination module installed"
+  
+  # Restart BitNinja to recognize the new module
+  systemctl restart bitninja
+  sleep 5
+else
+  log_and_console "✓ BitNinja SSL Termination module already installed"
+fi
+
+# Verify dependency packages (should be installed automatically)
+log_and_console "Verifying BitNinja dependencies..."
+MISSING_DEPS=""
+for pkg in bitninja-dispatcher bitninja-mq; do
+  if ! dpkg -l | grep -q "^ii.*${pkg}[[:space:]]"; then
+    log_and_console "⚠ WARNING: ${pkg} not found (should be installed as dependency)"
+    MISSING_DEPS="${MISSING_DEPS} ${pkg}"
+  fi
+done
+
+if [ -n "$MISSING_DEPS" ]; then
+  log_and_console "Installing missing dependencies:${MISSING_DEPS}"
+  apt-get install -y ${MISSING_DEPS} || log_and_console "⚠ WARNING: Some dependencies failed to install"
+fi
+
+log_and_console "✓ BitNinja package verification complete"
 
 if command -v bitninjacli &> /dev/null && systemctl is-active --quiet bitninja; then
   log_and_console "Configuring BitNinja security features..."
