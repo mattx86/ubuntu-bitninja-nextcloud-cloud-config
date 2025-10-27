@@ -185,6 +185,37 @@ cat > /etc/logrotate.d/turnserver << 'EOF'
 EOF
 log_and_console "✓ Log rotation configured"
 
+# Configure fail2ban for TURN server
+log_and_console "Configuring fail2ban protection for TURN server..."
+
+# Download fail2ban filter for coturn
+log_and_console "Downloading fail2ban filter configuration..."
+wget --tries=3 --timeout=30 -O /etc/fail2ban/filter.d/coturn.conf \
+  https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/conf/fail2ban-coturn-filter.conf || { 
+  log_and_console "ERROR: Failed to download fail2ban-coturn-filter.conf"; 
+  exit 1; 
+}
+
+# Download fail2ban jail configuration for coturn
+log_and_console "Downloading fail2ban jail configuration..."
+wget --tries=3 --timeout=30 -O /etc/fail2ban/jail.d/coturn.conf \
+  https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/conf/fail2ban-coturn.conf || { 
+  log_and_console "ERROR: Failed to download fail2ban-coturn.conf"; 
+  exit 1; 
+}
+
+# Update ports in the config file if they're non-standard
+if [ "$TURN_PORT" != "3478" ] || [ "$TURNS_PORT" != "5349" ]; then
+  sed -i "s/port = 3478,5349/port = $TURN_PORT,$TURNS_PORT/" /etc/fail2ban/jail.d/coturn.conf
+fi
+
+# Restart fail2ban to apply new rules
+systemctl restart fail2ban
+log_and_console "✓ fail2ban protection configured for TURN server"
+log_and_console "  Max retries: 5 attempts in 10 minutes"
+log_and_console "  Ban time: 1 hour"
+log_and_console "  Protected ports: $TURN_PORT, $TURNS_PORT"
+
 # Display TURN server information
 log_and_console ""
 log_and_console "=== TURN/STUN SERVER INFORMATION ==="
