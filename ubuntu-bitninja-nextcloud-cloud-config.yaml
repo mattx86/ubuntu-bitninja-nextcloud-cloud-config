@@ -25,20 +25,19 @@
 #
 # SYSTEM REQUIREMENTS:
 # - Ubuntu 24.04 LTS server
-# - Minimum: 1GB RAM, 1 CPU core, 5GB disk space
-# - Recommended: 2GB+ RAM for production workloads
+# - Minimum: 2GB RAM, 1 CPU core, 10GB disk space
+# - Recommended: 4GB+ RAM for production workloads
 # - Valid domain name with DNS configured
 # - BitNinja license key from: https://admin.bitninja.io
 #
 # MEMORY CONFIGURATION:
-# - Default settings optimized for 1GB RAM systems
-# - For 2GB+ RAM systems, uncomment the 2GB settings in config section
-# - Memory allocation breakdown (1GB system):
-#   * System + BitNinja: ~200MB
-#   * MariaDB buffer pool: 256MB
-#   * PHP memory limit: 256MB
-#   * OPcache: 64MB
-#   * Available for other processes: ~224MB
+# - Settings optimized for 2GB+ RAM systems
+# - Memory allocation breakdown (2GB system):
+#   * System + BitNinja: ~300MB
+#   * MariaDB buffer pool: 1GB
+#   * PHP memory limit: 512MB
+#   * OPcache: 128MB
+#   * Available for other processes: ~100MB
 #
 # CONFIGURATION:
 # 1. Update variables in the write_files config.sh section below
@@ -59,7 +58,7 @@ manage_etc_hosts: true
 write_files:
   - path: /root/system-setup/config.sh
     content: |
-      #!/bin/bash
+    #!/bin/bash
       # System Configuration Variables
       
       # ===== SYSTEM CONFIGURATION =====
@@ -119,6 +118,13 @@ write_files:
       export ENABLE_POLLS_APP="true"       # Polls and voting for decisions
       export ENABLE_PASSWORDS_APP="true"   # Secure password manager
       
+      # ===== TURN/STUN SERVER CONFIGURATION =====
+      # Required for Talk video/audio calls to work reliably
+      export ENABLE_TURN_SERVER="true"     # Install and configure coturn TURN/STUN server
+      export TURN_PORT="3478"              # TURN server port (UDP/TCP)
+      export TURNS_PORT="5349"             # TURN server TLS port (TCP)
+      # TURN secret will be auto-generated during installation
+      
       # ===== OFFICE SUITE CONFIGURATION =====
       # Nextcloud Office (Collabora Online Built-in)
       export ENABLE_OFFICE_SUITE="true"    # Enable Nextcloud Office integration
@@ -128,7 +134,7 @@ write_files:
       #   - LibreOffice-based editing
       #   - Real-time collaborative editing
       #   - Formats: .docx, .xlsx, .pptx, .odt, .ods, .odp
-      #   - Default save location: Team Documents folder
+      #   - Default save location: Team Files folder
       
       # ===== SYSTEM-WIDE EMAIL CONFIGURATION =====
       # Configure system email for notifications and shared mailbox
@@ -168,9 +174,7 @@ write_files:
       # ===== SHARED FOLDERS CONFIGURATION =====
       # Create shared folders accessible to all users
       export FILES_CREATE_SHARED="true"          # Create shared files folder
-      export FILES_SHARED_NAME="Team Documents"
-      export PHOTOS_CREATE_SHARED="true"         # Create shared photos folder
-      export PHOTOS_SHARED_NAME="Team Photos"
+      export FILES_SHARED_NAME="Team Files"
       export DECK_CREATE_SHARED="true"           # Create shared Deck board
       export DECK_SHARED_NAME="Team Projects"
       
@@ -180,27 +184,15 @@ write_files:
       export UFW_HTTPS_PORT="443"
       export UFW_CAPTCHA_PORT="60413"
       
-      # ===== MEMORY CONFIGURATION =====
-      # Current settings optimized for 1GB RAM system
-      # For 2GB RAM system, uncomment the 2GB settings below and comment out 1GB settings
-      
       # ===== PHP CONFIGURATION =====
-      # 1GB RAM System Settings (Current)
-      export PHP_MEMORY_LIMIT="256M"
-      # 2GB RAM System Settings (Uncomment these and comment out 1GB settings above)
-      # export PHP_MEMORY_LIMIT="512M"
-      
+      export PHP_MEMORY_LIMIT="512M"
       export PHP_UPLOAD_MAX="10G"
       export PHP_POST_MAX="10G"
       export PHP_MAX_EXECUTION="3600"
       export PHP_MAX_INPUT="3600"
       
       # ===== MARIADB CONFIGURATION =====
-      # 1GB RAM System Settings (Current) - Conservative buffer pool
-      export MARIADB_BUFFER_POOL="256M"
-      # 2GB RAM System Settings (Uncomment these and comment out 1GB settings above)
-      # export MARIADB_BUFFER_POOL="1G"
-      
+      export MARIADB_BUFFER_POOL="1G"
       export MARIADB_IO_CAPACITY="4000"
       export MARIADB_MAX_CONNECTIONS="200"
       
@@ -208,11 +200,7 @@ write_files:
       export OPCACHE_ENABLE="1"
       export OPCACHE_STRING_BUFFER="16"
       export OPCACHE_MAX_FILES="10000"
-      
-      # 1GB RAM System Settings (Current) - Conservative OPcache
-      export OPCACHE_MEMORY="64"
-      # 2GB RAM System Settings (Uncomment these and comment out 1GB settings above)
-      # export OPCACHE_MEMORY="128"
+      export OPCACHE_MEMORY="128"
       
       # ===== SYSTEM PATHS =====
       export SYSTEM_SETUP_DIR="/root/system-setup"
@@ -269,12 +257,13 @@ runcmd:
     wget --tries=3 --timeout=30 --show-progress -O _11_password_generation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_11_password_generation.sh || { echo "ERROR: Failed to download _11_password_generation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     wget --tries=3 --timeout=30 --show-progress -O _12_mariadb_configuration.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_12_mariadb_configuration.sh || { echo "ERROR: Failed to download _12_mariadb_configuration.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     wget --tries=3 --timeout=30 --show-progress -O _13_nextcloud_installation.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_13_nextcloud_installation.sh || { echo "ERROR: Failed to download _13_nextcloud_installation.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _14_system_optimization.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_14_system_optimization.sh || { echo "ERROR: Failed to download _14_system_optimization.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _15_system_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_15_system_verification.sh || { echo "ERROR: Failed to download _15_system_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _16_service_security_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_16_service_security_verification.sh || { echo "ERROR: Failed to download _16_service_security_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _17_cleanup.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_17_cleanup.sh || { echo "ERROR: Failed to download _17_cleanup.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _18_bitninja_final_config.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_18_bitninja_final_config.sh || { echo "ERROR: Failed to download _18_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
-    wget --tries=3 --timeout=30 --show-progress -O _19_unattended_upgrades.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_19_unattended_upgrades.sh || { echo "ERROR: Failed to download _19_unattended_upgrades.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _14_turn_server.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_14_turn_server.sh || { echo "ERROR: Failed to download _14_turn_server.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _15_system_optimization.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_15_system_optimization.sh || { echo "ERROR: Failed to download _15_system_optimization.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _16_system_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_16_system_verification.sh || { echo "ERROR: Failed to download _16_system_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _17_service_security_verification.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_17_service_security_verification.sh || { echo "ERROR: Failed to download _17_service_security_verification.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _18_cleanup.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_18_cleanup.sh || { echo "ERROR: Failed to download _18_cleanup.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _19_bitninja_final_config.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_19_bitninja_final_config.sh || { echo "ERROR: Failed to download _19_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
+    wget --tries=3 --timeout=30 --show-progress -O _20_unattended_upgrades.sh https://raw.githubusercontent.com/mattx86/ubuntu-bitninja-nextcloud-cloud-config/main/scripts/_20_unattended_upgrades.sh || { echo "ERROR: Failed to download _20_unattended_upgrades.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"; exit 1; }
     
     # Make all scripts executable with secure permissions (700)
     chmod 700 /root/system-setup/scripts/*.sh
@@ -294,12 +283,13 @@ runcmd:
   - /root/system-setup/scripts/_11_password_generation.sh
   - /root/system-setup/scripts/_12_mariadb_configuration.sh
   - /root/system-setup/scripts/_13_nextcloud_installation.sh
-  - /root/system-setup/scripts/_14_system_optimization.sh
-  - /root/system-setup/scripts/_15_system_verification.sh
-  - /root/system-setup/scripts/_16_service_security_verification.sh
-  - /root/system-setup/scripts/_17_cleanup.sh
-  - /root/system-setup/scripts/_18_bitninja_final_config.sh
-  - /root/system-setup/scripts/_19_unattended_upgrades.sh
+  - /root/system-setup/scripts/_14_turn_server.sh
+  - /root/system-setup/scripts/_15_system_optimization.sh
+  - /root/system-setup/scripts/_16_system_verification.sh
+  - /root/system-setup/scripts/_17_service_security_verification.sh
+  - /root/system-setup/scripts/_18_cleanup.sh
+  - /root/system-setup/scripts/_19_bitninja_final_config.sh
+  - /root/system-setup/scripts/_20_unattended_upgrades.sh
 
   # Final deployment completion message
   - |
@@ -309,8 +299,8 @@ runcmd:
     echo "✓ All components configured and ready for use." | tee -a "$LOG_FILE" | tee "$CONSOLE"
     echo "" | tee -a "$LOG_FILE" | tee "$CONSOLE"
     echo "⚠ IMPORTANT: If BitNinja is not listening on port 443, run:" | tee -a "$LOG_FILE" | tee "$CONSOLE"
-    echo "   sudo bash /root/system-setup/scripts/_18_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"
+    echo "   sudo bash /root/system-setup/scripts/_19_bitninja_final_config.sh" | tee -a "$LOG_FILE" | tee "$CONSOLE"
     echo "" | tee -a "$LOG_FILE" | tee "$CONSOLE"
 
 # ===== FINAL MESSAGE =====
-final_message: "Nextcloud + BitNinja setup complete! If BitNinja not on port 443, run: sudo bash /root/system-setup/scripts/_18_bitninja_final_config.sh"
+final_message: "Nextcloud + BitNinja setup complete! If BitNinja not on port 443, run: sudo bash /root/system-setup/scripts/_19_bitninja_final_config.sh"

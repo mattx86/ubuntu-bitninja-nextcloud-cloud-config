@@ -8,13 +8,31 @@ source /root/system-setup/config.sh
 log_and_console "=== UNATTENDED UPGRADES CONFIGURATION ==="
 
 # Install unattended-upgrades package if not already installed
-log_and_console "Installing unattended-upgrades package..."
+log_and_console "Checking unattended-upgrades package..."
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 export NEEDRESTART_SUSPEND=1
 
-apt-get install -y unattended-upgrades apt-listchanges || { log_and_console "ERROR: Failed to install unattended-upgrades"; exit 1; }
-log_and_console "✓ unattended-upgrades package installed"
+# Check if already installed
+if dpkg -l | grep -q "^ii.*unattended-upgrades"; then
+  log_and_console "✓ unattended-upgrades already installed"
+else
+  log_and_console "Installing unattended-upgrades package..."
+  apt-get update -y
+  apt-get install -y unattended-upgrades apt-listchanges || { 
+    log_and_console "⚠ WARNING: Failed to install unattended-upgrades"
+    log_and_console "Continuing anyway - you can install manually later"
+    log_and_console "Command: sudo apt-get install -y unattended-upgrades apt-listchanges"
+  }
+  
+  # Verify installation
+  if dpkg -l | grep -q "^ii.*unattended-upgrades"; then
+    log_and_console "✓ unattended-upgrades package installed"
+  else
+    log_and_console "⚠ WARNING: unattended-upgrades not installed - skipping configuration"
+    exit 0
+  fi
+fi
 
 # Download and configure unattended-upgrades
 log_and_console "Downloading unattended upgrades configuration..."

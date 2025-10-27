@@ -90,16 +90,23 @@ if [ $CERTBOT_EXIT_CODE -eq 0 ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
   # Set up automatic renewal hooks
   log_and_console "Configuring automatic certificate renewal..."
   
-  # Create renewal post-hook (restart BitNinja to pick up renewed certificate)
-  # Note: Certificate paths are symlinks, so BitNinja just needs to reload
+  # Create renewal post-hook (restart services to pick up renewed certificate)
+  # Note: Certificate paths are symlinks, so services just need to reload
   mkdir -p /etc/letsencrypt/renewal-hooks/post
-  cat > /etc/letsencrypt/renewal-hooks/post/update-bitninja.sh <<'EOFPOST'
+  cat > /etc/letsencrypt/renewal-hooks/post/update-services.sh <<'EOFPOST'
 #!/bin/bash
-# Restart BitNinja to pick up renewed certificate
+# Restart services to pick up renewed certificate
 # Certificate paths are symlinks that certbot updates, so just restart
+
+# Restart BitNinja
 systemctl restart bitninja
+
+# Restart coturn if it's installed and enabled
+if systemctl is-enabled --quiet coturn 2>/dev/null; then
+  systemctl restart coturn
+fi
 EOFPOST
-  chmod +x /etc/letsencrypt/renewal-hooks/post/update-bitninja.sh
+  chmod +x /etc/letsencrypt/renewal-hooks/post/update-services.sh
   
   log_and_console "✓ Automatic renewal configured (certbot timer renews every 60 days)"
   

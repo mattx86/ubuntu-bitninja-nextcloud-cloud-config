@@ -81,6 +81,43 @@ log_and_console "Disabling default skeleton files..."
 sudo -u www-data php occ config:system:set skeletondirectory --value=""
 log_and_console "✓ Default example files disabled for new users"
 
+# Remove default sample content from admin user
+log_and_console "Removing default sample content from admin user..."
+ADMIN_FILES_DIR="$NEXTCLOUD_DATA_DIR/$NEXTCLOUD_ADMIN_USER/files"
+if [ -d "$ADMIN_FILES_DIR" ]; then
+  # Remove Nextcloud sample files
+  rm -f "$ADMIN_FILES_DIR/Nextcloud intro.mp4" 2>/dev/null || true
+  rm -f "$ADMIN_FILES_DIR/Nextcloud Manual.pdf" 2>/dev/null || true
+  rm -f "$ADMIN_FILES_DIR/Nextcloud.png" 2>/dev/null || true
+  rm -f "$ADMIN_FILES_DIR/Reasons to use Nextcloud.pdf" 2>/dev/null || true
+  rm -f "$ADMIN_FILES_DIR/Readme.md" 2>/dev/null || true
+  rm -f "$ADMIN_FILES_DIR/Templates credits.md" 2>/dev/null || true
+  
+  # Remove default folders (but keep our Team folders)
+  rm -rf "$ADMIN_FILES_DIR/Documents" 2>/dev/null || true
+  rm -rf "$ADMIN_FILES_DIR/Photos" 2>/dev/null || true
+  rm -rf "$ADMIN_FILES_DIR/Templates" 2>/dev/null || true
+  
+  # Remove default app folders (will be recreated with Team prefix)
+  rm -rf "$ADMIN_FILES_DIR/Talk" 2>/dev/null || true
+  rm -rf "$ADMIN_FILES_DIR/Notes" 2>/dev/null || true
+  
+  # Rescan admin files to update the database
+  sudo -u www-data php occ files:scan "$NEXTCLOUD_ADMIN_USER" --quiet
+  
+  log_and_console "✓ Default sample content removed from admin user"
+else
+  log_and_console "⚠ Admin files directory not found yet - sample content will be removed after first login"
+fi
+
+# Disable unwanted default apps
+log_and_console "Disabling unwanted default apps..."
+# Disable Photos app (removes Photos icon from top menu)
+sudo -u www-data php occ app:disable photos 2>/dev/null || true
+# Disable Memories app (alternative photos app)
+sudo -u www-data php occ app:disable memories 2>/dev/null || true
+log_and_console "✓ Photos app disabled"
+
 # Disable all user registration
 log_and_console "Disabling user registration..."
 # Ensure no registration app is enabled
@@ -247,11 +284,11 @@ if [ "$ENABLE_OFFICE_SUITE" = "true" ]; then
   sudo -u www-data php occ config:app:set richdocuments wopi_url --value="https://$DOMAIN"
   sudo -u www-data php occ config:app:set richdocuments disable_certificate_verification --value="no"
   
-  # Set default save location to Team Documents folder (if it exists)
+  # Set default save location to Team Files folder (if it exists)
   if [ "$FILES_CREATE_SHARED" = "true" ]; then
-    log_and_console "Configuring default save location to Team Documents..."
+    log_and_console "Configuring default save location to Team Files..."
     # Note: Nextcloud Office saves to current folder by default
-    # Users can navigate to Team Documents when creating new files
+    # Users can navigate to Team Files when creating new files
     # The folder will be prominently available in the file picker
   fi
   
@@ -259,7 +296,7 @@ if [ "$ENABLE_OFFICE_SUITE" = "true" ]; then
   log_and_console "  Type: Collabora Online (Built-in CODE)"
   log_and_console "  Supported formats: .docx, .xlsx, .pptx, .odt, .ods, .odp"
   log_and_console "  Features: Real-time collaboration, LibreOffice compatibility"
-  log_and_console "  Default location: Team Documents folder available in file picker"
+  log_and_console "  Default location: Team Files folder available in file picker"
   log_and_console ""
 else
   log_and_console "Nextcloud Office: DISABLED"
@@ -658,8 +695,53 @@ if [ "$ENABLE_TALK_APP" = "true" ]; then
   log_and_console "Installing Talk app..."
   sudo -u www-data php occ app:install spreed
   sudo -u www-data php occ app:enable spreed
+  
+  # Apply patch to fix folder creation locking bug
+  # This fixes a race condition where multiple processes try to create the Talk folder simultaneously
+  TALK_INITIAL_STATE="$NEXTCLOUD_WEB_DIR/apps/spreed/lib/TInitialState.php"
+  if [ -f "$TALK_INITIAL_STATE" ]; then
+    log_and_console "  Applying Talk locking fix patch..."
+    
+    # Check if patch is needed (look for the unpatched code)
+    if grep -q '} catch (NotFoundException \$e) {$' "$TALK_INITIAL_STATE" && \
+       grep -A 1 '} catch (NotFoundException \$e) {$' "$TALK_INITIAL_STATE" | grep -q '\$folder = \$userFolder->newFolder(\$attachmentFolder);'; then
+      
+      # Create backup
+      cp "$TALK_INITIAL_STATE" "${TALK_INITIAL_STATE}.original"
+      
+      # Apply patch using sed (add LockedException handling)
+      sed -i '/} catch (NotFoundException \$e) {$/,/\$folder = \$userFolder->newFolder(\$attachmentFolder);$/ {
+        /\$folder = \$userFolder->newFolder(\$attachmentFolder);$/ {
+          c\
+\t\t\t\t\t\t// Try to create the folder, but handle the case where another process creates it simultaneously\
+\t\t\t\t\t\ttry {\
+\t\t\t\t\t\t\t$folder = $userFolder->newFolder($attachmentFolder);\
+\t\t\t\t\t\t} catch (\\OCP\\Lock\\LockedException $lockException) {\
+\t\t\t\t\t\t\t// Another process is creating the folder, wait and retry\
+\t\t\t\t\t\t\tusleep(100000);\
+\t\t\t\t\t\t\ttry {\
+\t\t\t\t\t\t\t\t$folder = $userFolder->get($attachmentFolder);\
+\t\t\t\t\t\t\t} catch (NotFoundException $notFoundException) {\
+\t\t\t\t\t\t\t\tthrow new NotPermittedException("Could not create folder due to locking");\
+\t\t\t\t\t\t\t}\
+\t\t\t\t\t\t}
+        }
+      }' "$TALK_INITIAL_STATE"
+      
+      log_and_console "  ✓ Talk locking fix applied"
+    else
+      log_and_console "  ℹ Talk locking fix not needed (already patched or code changed)"
+    fi
+  fi
+  
+  # Configure Talk attachment folder name
+  log_and_console "Configuring Talk attachment folder..."
+  sudo -u www-data php occ config:app:set spreed default_attachment_folder --value="/Team Talk"
+  log_and_console "✓ Talk attachment folder set to: /Team Talk"
+  
   log_and_console "✓ Talk app installed and enabled"
-  log_and_console "  Features: Video calls, audio calls, screen sharing, team chat"
+  log_and_console "  Features: Video calls, audio calls, screen sharing, team chat, file attachments"
+  log_and_console "  Attachment folder: /Team Talk"
   log_and_console "  Access: Top menu → Talk"
   log_and_console "  Mobile apps: Available for iOS and Android"
 else
@@ -671,8 +753,15 @@ if [ "$ENABLE_NOTES_APP" = "true" ]; then
   log_and_console "Installing Notes app..."
   sudo -u www-data php occ app:install notes
   sudo -u www-data php occ app:enable notes
+  
+  # Configure Notes folder name
+  log_and_console "Configuring Notes folder..."
+  sudo -u www-data php occ config:app:set notes notesPath --value="Team Notes"
+  log_and_console "✓ Notes folder set to: /Team Notes"
+  
   log_and_console "✓ Notes app installed and enabled"
   log_and_console "  Features: Markdown support, categories, real-time sync"
+  log_and_console "  Notes folder: /Team Notes"
   log_and_console "  Access: Top menu → Notes"
   log_and_console "  Mobile apps: Available for iOS and Android"
 else
@@ -708,7 +797,7 @@ fi
 log_and_console "✓ Collaboration apps configuration complete"
 log_and_console ""
 
-# Create shared folders for Files and Photos
+# Create shared folders
 log_and_console "=== SHARED FOLDERS ==="
 
 # Create shared Files folder
@@ -728,7 +817,6 @@ require '/var/www/nextcloud/lib/base.php';
 
 $adminUser = getenv('NEXTCLOUD_ADMIN_USER');
 $folderName = getenv('FOLDER_NAME');
-$shareType = getenv('SHARE_TYPE'); // 'files' or 'photos'
 
 try {
     // Get the file ID
@@ -773,7 +861,7 @@ try {
 }
 PHPEOF
   
-  NEXTCLOUD_ADMIN_USER="$NEXTCLOUD_ADMIN_USER" FOLDER_NAME="$FILES_SHARED_NAME" SHARE_TYPE="files" sudo -u www-data php /tmp/share_folder.php
+  NEXTCLOUD_ADMIN_USER="$NEXTCLOUD_ADMIN_USER" FOLDER_NAME="$FILES_SHARED_NAME" sudo -u www-data php /tmp/share_folder.php
   rm -f /tmp/share_folder.php
   
   log_and_console "✓ Shared files folder created: $FILES_SHARED_NAME"
@@ -781,63 +869,6 @@ PHPEOF
   log_and_console "  Path: /$FILES_SHARED_NAME"
 else
   log_and_console "Shared files folder: DISABLED"
-fi
-
-# Create shared Photos folder
-if [ "$PHOTOS_CREATE_SHARED" = "true" ]; then
-  log_and_console "Creating shared photos folder..."
-  
-  # Create folder in admin's files
-  sudo -u www-data mkdir -p "$NEXTCLOUD_DATA_DIR/$NEXTCLOUD_ADMIN_USER/files/$PHOTOS_SHARED_NAME"
-  sudo -u www-data php occ files:scan "$NEXTCLOUD_ADMIN_USER"
-  
-  # Share the folder with all users
-  cat > /tmp/share_photos.php <<'PHPEOF'
-<?php
-require '/var/www/nextcloud/lib/base.php';
-\OC::$CLI = true;
-
-$adminUser = getenv('NEXTCLOUD_ADMIN_USER');
-$folderName = getenv('FOLDER_NAME');
-
-try {
-    $userFolder = \OC::$server->getUserFolder($adminUser);
-    $folder = $userFolder->get($folderName);
-    
-    $shareManager = \OC::$server->getShareManager();
-    $userManager = \OC::$server->getUserManager();
-    $users = $userManager->search('');
-    
-    foreach ($users as $user) {
-        if ($user->getUID() !== $adminUser) {
-            try {
-                $userShare = $shareManager->newShare();
-                $userShare->setNode($folder);
-                $userShare->setShareType(\OCP\Share\IShare::TYPE_USER);
-                $userShare->setSharedBy($adminUser);
-                $userShare->setSharedWith($user->getUID());
-                $userShare->setPermissions(\OCP\Constants::PERMISSION_ALL);
-                $shareManager->createShare($userShare);
-            } catch (\Exception $e) {
-                // Share might already exist
-            }
-        }
-    }
-    
-    echo "Photos folder shared successfully with all users\n";
-} catch (\Exception $e) {
-    echo "Note: Photos folder sharing configured: " . $e->getMessage() . "\n";
-}
-PHPEOF
-  
-  NEXTCLOUD_ADMIN_USER="$NEXTCLOUD_ADMIN_USER" FOLDER_NAME="$PHOTOS_SHARED_NAME" sudo -u www-data php /tmp/share_photos.php
-  rm -f /tmp/share_photos.php
-  
-  log_and_console "✓ Shared photos folder created: $PHOTOS_SHARED_NAME"
-  log_and_console "  Folder is accessible to all users"
-  log_and_console "  Path: /$PHOTOS_SHARED_NAME"
-else
-  log_and_console "Shared photos folder: DISABLED"
 fi
 
 log_and_console "✓ Optional apps configuration complete"
