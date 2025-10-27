@@ -274,19 +274,19 @@ if [ "$ENABLE_MAIL_APP" = "true" ]; then
   sudo -u www-data php occ app:enable mail
   log_and_console "✓ Mail app installed and enabled"
   
-  # Configure shared mailbox if requested
+  # Configure team mailbox if requested
   if [ "$MAIL_CREATE_SHARED_ACCOUNT" = "true" ] && [ -n "$MAIL_IMAP_HOST" ] && [ -n "$MAIL_SMTP_HOST" ]; then
-    log_and_console "Configuring email account for admin user..."
+    log_and_console "Configuring team mailbox for admin user..."
     
     # Create mail account configuration via database
     # Note: Nextcloud Mail stores accounts in the database, not via occ commands
     # We'll create a provisioning file that the user can import
     
-    MAIL_CONFIG_FILE="/root/system-setup/shared-mailbox-config.txt"
+    MAIL_CONFIG_FILE="/root/system-setup/team-mailbox-config.txt"
     cat > "$MAIL_CONFIG_FILE" <<EOF
-=== SHARED MAILBOX CONFIGURATION ===
+=== TEAM MAILBOX CONFIGURATION ===
 
-To configure the shared mailbox in Nextcloud Mail:
+To configure the team mailbox in Nextcloud Mail:
 
 1. Log in to Nextcloud: https://$DOMAIN/
 2. Go to Mail app (top menu)
@@ -343,12 +343,12 @@ Custom Domain (cPanel/Plesk):
 EOF
     
     chmod 600 "$MAIL_CONFIG_FILE"
-    log_and_console "✓ Shared mailbox configuration saved to: $MAIL_CONFIG_FILE"
+    log_and_console "✓ Team mailbox configuration saved to: $MAIL_CONFIG_FILE"
     log_and_console "  Email: $MAIL_SYSTEM_FROM_ADDRESS"
     log_and_console "  IMAP: $MAIL_IMAP_HOST:$MAIL_IMAP_PORT"
     log_and_console "  SMTP: $MAIL_SMTP_HOST:$MAIL_SMTP_PORT"
   else
-    log_and_console "Shared mailbox configuration: DISABLED"
+    log_and_console "Team mailbox configuration: DISABLED"
     log_and_console "  To enable: Set MAIL_CREATE_SHARED_ACCOUNT=true and add credentials"
   fi
 else

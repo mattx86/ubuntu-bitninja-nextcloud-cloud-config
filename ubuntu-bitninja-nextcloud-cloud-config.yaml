@@ -59,7 +59,7 @@ manage_etc_hosts: true
 write_files:
   - path: /root/system-setup/config.sh
     content: |
-    #!/bin/bash
+      #!/bin/bash
       # System Configuration Variables
       
       # ===== SYSTEM CONFIGURATION =====
@@ -147,9 +147,9 @@ write_files:
       export MAIL_SMTP_PASSWORD=""           # SMTP password or app-specific password
       export MAIL_SMTP_AUTH="login"          # login, plain, or none
       
-      # Shared mailbox configuration (optional)
-      export MAIL_CREATE_SHARED_ACCOUNT="false"  # Create shared mailbox accessible to all users
-      export MAIL_SHARED_ACCOUNT_NAME="Shared Mailbox"
+      # Team mailbox configuration (optional)
+      export MAIL_CREATE_SHARED_ACCOUNT="false"  # Create team mailbox accessible to all users
+      export MAIL_SHARED_ACCOUNT_NAME="Team Mailbox"
       
       # ===== CALENDAR/CONTACTS CONFIGURATION =====
       # Shared calendars and contacts for organization-wide use

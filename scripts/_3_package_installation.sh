@@ -56,27 +56,13 @@ apt-get install -y \
   php8.3-xml \
   php8.3-bcmath \
   php8.3-intl \
-  imagemagick \
   php8.3-imagick \
   php8.3-gmp \
   php8.3-apcu \
   php8.3-redis \
   php8.3-ldap \
   php8.3-bz2 \
-  php8.3-fileinfo \
-  php8.3-dom \
-  php8.3-json \
-  php8.3-openssl \
-  php8.3-posix \
-  php8.3-session \
-  php8.3-simplexml \
-  php8.3-xmlreader \
-  php8.3-xmlwriter \
-  php8.3-zlib \
-  php8.3-ctype \
-  php8.3-iconv \
-  php8.3-pcntl \
-  php8.3-tokenizer \
+  imagemagick \
   | tee -a "$LOG_FILE"
 
 log_and_console "Installing database and caching..."
