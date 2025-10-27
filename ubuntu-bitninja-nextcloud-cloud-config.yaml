@@ -58,7 +58,7 @@ manage_etc_hosts: true
 write_files:
   - path: /root/system-setup/config.sh
     content: |
-    #!/bin/bash
+      #!/bin/bash
       # System Configuration Variables
       
       # ===== SYSTEM CONFIGURATION =====
