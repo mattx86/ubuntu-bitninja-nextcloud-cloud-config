@@ -27,6 +27,15 @@ ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_HTTP_PORT" comment 'HTTP
 ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_HTTPS_PORT" comment 'HTTPS - BitNinja WAF (IPv4)'
 ufw allow proto tcp from any to "$SERVER_IP" port "$UFW_CAPTCHA_PORT" comment 'HTTPS Captcha - BitNinja (IPv4)'
 
+# Add TURN/STUN server rules if enabled
+if [ "$ENABLE_TURN_SERVER" = "true" ]; then
+  log_and_console "Adding TURN/STUN server firewall rules..."
+  ufw allow proto tcp from any to "$SERVER_IP" port "$TURN_PORT" comment 'TURN server (TCP) (IPv4)'
+  ufw allow proto udp from any to "$SERVER_IP" port "$TURN_PORT" comment 'TURN server (UDP) (IPv4)'
+  ufw allow proto tcp from any to "$SERVER_IP" port "$TURNS_PORT" comment 'TURNS server (TLS) (IPv4)'
+  log_and_console "✓ TURN/STUN firewall rules added for IPv4"
+fi
+
 # Add IPv6 rules if IPv6 is enabled
 if [ "$DISABLE_IPV6" != "true" ] && [ -n "$SERVER_IPV6" ]; then
   log_and_console "Adding UFW rules for IPv6 address: $SERVER_IPV6"
@@ -34,6 +43,15 @@ if [ "$DISABLE_IPV6" != "true" ] && [ -n "$SERVER_IPV6" ]; then
   ufw allow proto tcp from any to "$SERVER_IPV6" port "$UFW_HTTP_PORT" comment 'HTTP - Lets Encrypt challenges (IPv6)'
   ufw allow proto tcp from any to "$SERVER_IPV6" port "$UFW_HTTPS_PORT" comment 'HTTPS - BitNinja WAF (IPv6)'
   ufw allow proto tcp from any to "$SERVER_IPV6" port "$UFW_CAPTCHA_PORT" comment 'HTTPS Captcha - BitNinja (IPv6)'
+  
+  # Add TURN/STUN server rules for IPv6 if enabled
+  if [ "$ENABLE_TURN_SERVER" = "true" ]; then
+    ufw allow proto tcp from any to "$SERVER_IPV6" port "$TURN_PORT" comment 'TURN server (TCP) (IPv6)'
+    ufw allow proto udp from any to "$SERVER_IPV6" port "$TURN_PORT" comment 'TURN server (UDP) (IPv6)'
+    ufw allow proto tcp from any to "$SERVER_IPV6" port "$TURNS_PORT" comment 'TURNS server (TLS) (IPv6)'
+    log_and_console "✓ TURN/STUN firewall rules added for IPv6"
+  fi
+  
   log_and_console "✓ IPv6 firewall rules added"
 else
   log_and_console "✓ IPv6 disabled - skipping IPv6 firewall rules"
@@ -62,4 +80,8 @@ ufw reload
 log_and_console "=== UFW Status ==="
 ufw status verbose | tee -a "$LOG_FILE"
 
-log_and_console "✓ UFW configured: SSH ($UFW_SSH_PORT), HTTP ($UFW_HTTP_PORT), HTTPS ($UFW_HTTPS_PORT), HTTPS Captcha ($UFW_CAPTCHA_PORT)"
+if [ "$ENABLE_TURN_SERVER" = "true" ]; then
+  log_and_console "✓ UFW configured: SSH ($UFW_SSH_PORT), HTTP ($UFW_HTTP_PORT), HTTPS ($UFW_HTTPS_PORT), HTTPS Captcha ($UFW_CAPTCHA_PORT), TURN ($TURN_PORT TCP/UDP), TURNS ($TURNS_PORT TCP)"
+else
+  log_and_console "✓ UFW configured: SSH ($UFW_SSH_PORT), HTTP ($UFW_HTTP_PORT), HTTPS ($UFW_HTTPS_PORT), HTTPS Captcha ($UFW_CAPTCHA_PORT)"
+fi
