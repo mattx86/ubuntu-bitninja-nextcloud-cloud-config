@@ -133,9 +133,13 @@ if [ "$ENABLE_GOOGLE_LOGIN" = "true" ] || [ "$ENABLE_APPLE_LOGIN" = "true" ]; th
   log_and_console "Social login enabled - installing Social Login app..."
   
   # Install and enable Social Login app for Apple/Google authentication
-  sudo -u www-data php occ app:install sociallogin
-  sudo -u www-data php occ app:enable sociallogin
-  log_and_console "✓ Social Login app installed and enabled"
+  if sudo -u www-data php occ app:install sociallogin 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable sociallogin
+    log_and_console "✓ Social Login app installed and enabled"
+  else
+    log_and_console "⚠ WARNING: Failed to install Social Login app - social login will not work"
+    log_and_console "  Install manually: sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ app:install sociallogin"
+  fi
 
   # Configure Social Login settings
   log_and_console "Configuring Social Login settings..."
@@ -271,14 +275,20 @@ if [ "$ENABLE_OFFICE_SUITE" = "true" ]; then
   log_and_console "Installing Nextcloud Office (Collabora Online Built-in)..."
   
   # Install Nextcloud Office app (includes built-in CODE server)
-  sudo -u www-data php occ app:install richdocumentscode
-  sudo -u www-data php occ app:enable richdocumentscode
-  log_and_console "✓ Collabora Online Built-in server installed"
+  if sudo -u www-data php occ app:install richdocumentscode 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable richdocumentscode
+    log_and_console "✓ Collabora Online Built-in server installed"
+  else
+    log_and_console "⚠ WARNING: Failed to install Collabora CODE server"
+  fi
   
   # Install Nextcloud Office app (frontend)
-  sudo -u www-data php occ app:install richdocuments
-  sudo -u www-data php occ app:enable richdocuments
-  log_and_console "✓ Nextcloud Office app installed and enabled"
+  if sudo -u www-data php occ app:install richdocuments 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable richdocuments
+    log_and_console "✓ Nextcloud Office app installed and enabled"
+  else
+    log_and_console "⚠ WARNING: Failed to install Nextcloud Office app"
+  fi
   
   # Configure to use built-in CODE server
   sudo -u www-data php occ config:app:set richdocuments wopi_url --value="https://$DOMAIN"
@@ -307,9 +317,12 @@ fi
 # Mail app
 if [ "$ENABLE_MAIL_APP" = "true" ]; then
   log_and_console "Installing Mail app..."
-  sudo -u www-data php occ app:install mail
-  sudo -u www-data php occ app:enable mail
-  log_and_console "✓ Mail app installed and enabled"
+  if sudo -u www-data php occ app:install mail 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable mail
+    log_and_console "✓ Mail app installed and enabled"
+  else
+    log_and_console "⚠ WARNING: Failed to install Mail app"
+  fi
   
   # Configure team mailbox if requested
   if [ "$MAIL_CREATE_SHARED_ACCOUNT" = "true" ] && [ -n "$MAIL_IMAP_HOST" ] && [ -n "$MAIL_SMTP_HOST" ]; then
@@ -395,9 +408,12 @@ fi
 # Calendar app
 if [ "$ENABLE_CALENDAR_APP" = "true" ]; then
   log_and_console "Installing Calendar app..."
-  sudo -u www-data php occ app:install calendar
-  sudo -u www-data php occ app:enable calendar
-  log_and_console "✓ Calendar app installed and enabled"
+  if sudo -u www-data php occ app:install calendar 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable calendar
+    log_and_console "✓ Calendar app installed and enabled"
+  else
+    log_and_console "⚠ WARNING: Failed to install Calendar app"
+  fi
   log_and_console "  CalDAV URL: https://$DOMAIN/remote.php/dav"
   
   # Create shared calendar if requested
@@ -469,9 +485,12 @@ fi
 # Contacts app
 if [ "$ENABLE_CONTACTS_APP" = "true" ]; then
   log_and_console "Installing Contacts app..."
-  sudo -u www-data php occ app:install contacts
-  sudo -u www-data php occ app:enable contacts
-  log_and_console "✓ Contacts app installed and enabled"
+  if sudo -u www-data php occ app:install contacts 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable contacts
+    log_and_console "✓ Contacts app installed and enabled"
+  else
+    log_and_console "⚠ WARNING: Failed to install Contacts app"
+  fi
   log_and_console "  CardDAV URL: https://$DOMAIN/remote.php/dav"
   
   # Create shared contacts if requested
@@ -642,9 +661,12 @@ fi
 # Deck app (Kanban board)
 if [ "$ENABLE_DECK_APP" = "true" ]; then
   log_and_console "Installing Deck app..."
-  sudo -u www-data php occ app:install deck
-  sudo -u www-data php occ app:enable deck
-  log_and_console "✓ Deck app installed and enabled"
+  if sudo -u www-data php occ app:install deck 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable deck
+    log_and_console "✓ Deck app installed and enabled"
+  else
+    log_and_console "⚠ WARNING: Failed to install Deck app"
+  fi
   
   # Create shared Deck board if requested
   if [ "$DECK_CREATE_SHARED" = "true" ]; then
@@ -693,8 +715,11 @@ fi
 # Talk app (Video/audio calls and chat)
 if [ "$ENABLE_TALK_APP" = "true" ]; then
   log_and_console "Installing Talk app..."
-  sudo -u www-data php occ app:install spreed
-  sudo -u www-data php occ app:enable spreed
+  if sudo -u www-data php occ app:install spreed 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable spreed
+  else
+    log_and_console "⚠ WARNING: Failed to install Talk app"
+  fi
   
   # Apply patch to fix folder creation locking bug
   # This fixes a race condition where multiple processes try to create the Talk folder simultaneously
@@ -751,8 +776,11 @@ fi
 # Notes app (Note-taking)
 if [ "$ENABLE_NOTES_APP" = "true" ]; then
   log_and_console "Installing Notes app..."
-  sudo -u www-data php occ app:install notes
-  sudo -u www-data php occ app:enable notes
+  if sudo -u www-data php occ app:install notes 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable notes
+  else
+    log_and_console "⚠ WARNING: Failed to install Notes app"
+  fi
   
   # Configure Notes folder name
   log_and_console "Configuring Notes folder..."
@@ -771,9 +799,12 @@ fi
 # Polls app (Polls and voting)
 if [ "$ENABLE_POLLS_APP" = "true" ]; then
   log_and_console "Installing Polls app..."
-  sudo -u www-data php occ app:install polls
-  sudo -u www-data php occ app:enable polls
-  log_and_console "✓ Polls app installed and enabled"
+  if sudo -u www-data php occ app:install polls 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable polls
+    log_and_console "✓ Polls app installed and enabled"
+  else
+    log_and_console "⚠ WARNING: Failed to install Polls app"
+  fi
   log_and_console "  Features: Multiple choice, date polls, anonymous voting"
   log_and_console "  Access: Top menu → Polls"
   log_and_console "  Use cases: Decision making, scheduling, team votes"
@@ -784,12 +815,17 @@ fi
 # Passwords app (Password manager)
 if [ "$ENABLE_PASSWORDS_APP" = "true" ]; then
   log_and_console "Installing Passwords app..."
-  sudo -u www-data php occ app:install passwords
-  sudo -u www-data php occ app:enable passwords
-  log_and_console "✓ Passwords app installed and enabled"
-  log_and_console "  Features: Encrypted storage, browser extensions, password generator"
-  log_and_console "  Access: Top menu → Passwords"
-  log_and_console "  Security: End-to-end encrypted, shareable with team"
+  if sudo -u www-data php occ app:install passwords 2>&1 | tee -a "$LOG_FILE"; then
+    sudo -u www-data php occ app:enable passwords
+    log_and_console "✓ Passwords app installed and enabled"
+    log_and_console "  Features: Encrypted storage, browser extensions, password generator"
+    log_and_console "  Access: Top menu → Passwords"
+    log_and_console "  Security: End-to-end encrypted, shareable with team"
+  else
+    log_and_console "⚠ WARNING: Failed to install Passwords app from app store"
+    log_and_console "  You can install it manually later via: Apps → Office & text → Passwords"
+    log_and_console "  Or run: sudo -u www-data php $NEXTCLOUD_WEB_DIR/occ app:install passwords"
+  fi
 else
   log_and_console "Passwords app: DISABLED"
 fi
