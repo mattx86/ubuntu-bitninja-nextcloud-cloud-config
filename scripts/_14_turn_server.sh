@@ -82,7 +82,6 @@ lt-cred-mech
 
 # Logging
 verbose
-log-file=/var/log/turnserver.log
 
 # Performance tuning
 max-bps=1000000
@@ -110,6 +109,10 @@ cli-port=5766
 # Process management
 pidfile=/var/run/turnserver.pid
 EOF
+
+# Set permissions for turnserver user to read let's Encrypt certificate files.
+setfacl -dR -m u:turnserver:rx /etc/letsencrypt/{live,archive}/$DOMAIN
+setfacl -R -m u:turnserver:rx /etc/letsencrypt/{live,archive}/$DOMAIN
 
 log_and_console "✓ coturn configured"
 
@@ -169,7 +172,7 @@ log_and_console "✓ Nextcloud Talk configured to use TURN/STUN server"
 # Create logrotate configuration for turnserver
 log_and_console "Configuring log rotation..."
 cat > /etc/logrotate.d/turnserver << 'EOF'
-/var/log/turnserver.log {
+/var/log/turnserver/* {
     daily
     rotate 7
     compress
