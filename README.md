@@ -2,6 +2,32 @@
 
 Copyright (c) 2025 Matt Smith - [MIT License](LICENSE.md)
 
+---
+
+## ⚠️ **PROJECT STATUS WARNING** ⚠️
+
+**🚧 WORK IN PROGRESS - NOT PRODUCTION READY 🚧**
+
+This project is currently under active development and is **NOT ready for production use**. 
+
+**Current Status:**
+- ❌ **Not Production Ready** - May contain bugs, security issues, or incomplete features
+- ❌ **May Not Be Functional** - Some features may be broken or untested
+- ❌ **Breaking Changes Expected** - Configuration and scripts may change without notice
+- ❌ **No Warranty** - Use at your own risk
+
+**Use Cases:**
+- ✅ Testing and development environments only
+- ✅ Learning and experimentation
+
+**DO NOT USE:**
+- ❌ Production servers
+- ❌ Mission-critical applications
+
+**If you choose to use this project, you do so at your own risk. Always test in a safe environment first.**
+
+---
+
 ## 📋 Overview
 
 This cloud-config YAML provides a complete, production-ready installation of **Nextcloud** with **BitNinja WAF 2.0** on **Ubuntu 24.04 LTS**, following official documentation from both projects. Includes **automated SSL certificate acquisition** via Let's Encrypt with certbot.
