@@ -159,10 +159,10 @@ log_and_console "Configuring Nextcloud Talk to use TURN server..."
 # Wait for Nextcloud to be ready
 sleep 2
 
-# Add TURN server configuration
-sudo -u www-data php "$NEXTCLOUD_WEB_DIR/occ" talk:turn:add "turn:$DOMAIN:$TURN_PORT" udp "$TURN_SECRET" || log_and_console "  ⚠ Failed to add TURN UDP"
-sudo -u www-data php "$NEXTCLOUD_WEB_DIR/occ" talk:turn:add "turn:$DOMAIN:$TURN_PORT" tcp "$TURN_SECRET" || log_and_console "  ⚠ Failed to add TURN TCP"
-sudo -u www-data php "$NEXTCLOUD_WEB_DIR/occ" talk:turn:add "turns:$DOMAIN:$TURNS_PORT" tcp "$TURN_SECRET" || log_and_console "  ⚠ Failed to add TURNS"
+# Add TURN server configuration (using standard ports)
+sudo -u www-data php "$NEXTCLOUD_WEB_DIR/occ" talk:turn:add --secret="$TURN_SECRET" turn "$DOMAIN" udp || log_and_console "  ⚠ Failed to add TURN UDP"
+sudo -u www-data php "$NEXTCLOUD_WEB_DIR/occ" talk:turn:add --secret="$TURN_SECRET" turn "$DOMAIN" tcp || log_and_console "  ⚠ Failed to add TURN TCP"
+sudo -u www-data php "$NEXTCLOUD_WEB_DIR/occ" talk:turn:add --secret="$TURN_SECRET" turns "$DOMAIN" tcp || log_and_console "  ⚠ Failed to add TURNS"
 
 # Add STUN server
 sudo -u www-data php "$NEXTCLOUD_WEB_DIR/occ" talk:stun:add "$DOMAIN:$TURN_PORT" || log_and_console "  ⚠ Failed to add STUN"
