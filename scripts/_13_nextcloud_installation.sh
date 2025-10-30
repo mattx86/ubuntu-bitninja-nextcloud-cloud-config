@@ -155,7 +155,9 @@ log_and_console "Disabling unwanted default apps..."
 sudo -u www-data php occ app:disable photos 2>/dev/null || true
 # Disable Memories app (alternative photos app)
 sudo -u www-data php occ app:disable memories 2>/dev/null || true
-log_and_console "✓ Photos app disabled"
+# Disable First Run Wizard (welcome popup on first login)
+sudo -u www-data php occ app:disable firstrunwizard 2>/dev/null || true
+log_and_console "✓ Unwanted apps disabled (Photos, Memories, First Run Wizard)"
 
 # Disable all user registration
 log_and_console "Disabling user registration..."
@@ -968,6 +970,148 @@ else
 fi
 
 log_and_console "✓ Optional apps configuration complete"
+log_and_console ""
+
+# ===== CLEANUP DEFAULT WELCOME CONTENT =====
+log_and_console "=== REMOVING DEFAULT WELCOME CONTENT ==="
+log_and_console "Cleaning up default welcome content from all apps..."
+
+cat > /tmp/cleanup_welcome_content.php <<'PHPEOF'
+<?php
+require '/var/www/nextcloud/lib/base.php';
+\OC::$CLI = true;
+
+$adminUser = getenv('NEXTCLOUD_ADMIN_USER');
+$connection = \OC::$server->getDatabaseConnection();
+$config = \OC::$server->getConfig();
+
+echo "Cleaning up welcome content for user: $adminUser\n\n";
+
+// 1. Clear Activity entries
+try {
+    $qb = $connection->getQueryBuilder();
+    $qb->delete('activity')
+       ->where($qb->expr()->eq('affecteduser', $qb->createNamedParameter($adminUser)))
+       ->execute();
+    echo "✓ Activity entries cleared\n";
+} catch (\Exception $e) {
+    echo "⚠ Activity: " . $e->getMessage() . "\n";
+}
+
+// 2. Clear Dashboard first-run and notifications
+try {
+    $config->deleteUserValue($adminUser, 'dashboard', 'firstRun');
+    $config->deleteUserValue($adminUser, 'firstrunwizard', 'show');
+    $config->deleteUserValue($adminUser, 'firstrunwizard', 'state');
+    
+    $qb = $connection->getQueryBuilder();
+    $qb->delete('notifications')
+       ->where($qb->expr()->eq('user', $qb->createNamedParameter($adminUser)))
+       ->execute();
+    echo "✓ Dashboard and notifications cleared\n";
+    echo "✓ First-run wizard settings cleared\n";
+} catch (\Exception $e) {
+    echo "⚠ Dashboard: " . $e->getMessage() . "\n";
+}
+
+// 3. Clear Talk welcome conversations
+try {
+    $qb = $connection->getQueryBuilder();
+    $qb->select('room_id')
+       ->from('talk_attendees')
+       ->where($qb->expr()->eq('actor_id', $qb->createNamedParameter($adminUser)));
+    $result = $qb->execute();
+    $roomIds = $result->fetchAll(\PDO::FETCH_COLUMN);
+    $result->closeCursor();
+    
+    $removedCount = 0;
+    foreach ($roomIds as $roomId) {
+        $qb = $connection->getQueryBuilder();
+        $qb->select('name')
+           ->from('talk_rooms')
+           ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId)));
+        $roomResult = $qb->execute();
+        $room = $roomResult->fetch();
+        $roomResult->closeCursor();
+        
+        if ($room && (stripos($room['name'], 'Talk updates') !== false || 
+                      stripos($room['name'], 'Welcome') !== false ||
+                      stripos($room['name'], 'changelog') !== false)) {
+            $qb = $connection->getQueryBuilder();
+            $qb->delete('talk_attendees')
+               ->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId)))
+               ->execute();
+            $qb = $connection->getQueryBuilder();
+            $qb->delete('talk_rooms')
+               ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId)))
+               ->execute();
+            $removedCount++;
+        }
+    }
+    echo "✓ Talk conversations cleared ($removedCount removed)\n";
+} catch (\Exception $e) {
+    echo "⚠ Talk: " . $e->getMessage() . "\n";
+}
+
+// 4. Clear Deck welcome board
+try {
+    $boardService = \OC::$server->query(\OCA\Deck\Service\BoardService::class);
+    $boards = $boardService->findAll($adminUser);
+    $removedCount = 0;
+    
+    foreach ($boards as $board) {
+        if (stripos($board->getTitle(), 'Welcome to') !== false || 
+            stripos($board->getTitle(), 'Nextcloud Deck') !== false) {
+            $boardService->delete($board->getId());
+            $removedCount++;
+        }
+    }
+    echo "✓ Deck welcome boards cleared ($removedCount removed)\n";
+} catch (\Exception $e) {
+    echo "⚠ Deck: " . $e->getMessage() . "\n";
+}
+
+// 5. Clear Files app welcome tips and first-run
+try {
+    // Clear Files app first-run wizard
+    $config->deleteUserValue($adminUser, 'files', 'show_hidden');
+    $config->deleteUserValue($adminUser, 'files', 'quota');
+    
+    // Clear any Files app tips/hints
+    $qb = $connection->getQueryBuilder();
+    $qb->delete('preferences')
+       ->where($qb->expr()->eq('userid', $qb->createNamedParameter($adminUser)))
+       ->andWhere($qb->expr()->eq('appid', $qb->createNamedParameter('files')))
+       ->andWhere($qb->expr()->like('configkey', $qb->createNamedParameter('%hint%')))
+       ->execute();
+    
+    echo "✓ Files app welcome tips cleared\n";
+} catch (\Exception $e) {
+    echo "⚠ Files: " . $e->getMessage() . "\n";
+}
+
+echo "\n✓ Welcome content cleanup complete!\n";
+PHPEOF
+
+NEXTCLOUD_ADMIN_USER="$NEXTCLOUD_ADMIN_USER" sudo -u www-data php /tmp/cleanup_welcome_content.php 2>&1 | tee -a "$LOG_FILE"
+rm -f /tmp/cleanup_welcome_content.php
+
+# Remove default welcome notes files
+NOTES_DIR="$NEXTCLOUD_DATA_DIR/$NEXTCLOUD_ADMIN_USER/files/Team Notes"
+if [ -d "$NOTES_DIR" ]; then
+  log_and_console "Removing default welcome notes..."
+  rm -f "$NOTES_DIR/Welcome"*.* "$NOTES_DIR/Getting Started"*.* 2>/dev/null || true
+  sudo -u www-data php occ files:scan "$NEXTCLOUD_ADMIN_USER" --path="/Team Notes" --quiet 2>/dev/null || true
+  log_and_console "✓ Welcome notes removed"
+fi
+
+log_and_console "✓ All default welcome content removed from:"
+log_and_console "  - Dashboard (first-run wizard, notifications)"
+log_and_console "  - Activity (welcome messages)"
+log_and_console "  - Talk (changelog conversations)"
+log_and_console "  - Files (welcome tips and hints)"
+log_and_console "  - Notes (welcome notes)"
+log_and_console "  - Deck (welcome boards)"
 log_and_console ""
 
 # Set up cron jobs for Nextcloud
