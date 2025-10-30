@@ -61,6 +61,25 @@ sudo -u www-data php occ config:system:set default_locale --value="en_US"
 # Enable recommended apps
 sudo -u www-data php occ app:enable files_external
 
+# Enable built-in viewers
+log_and_console "Enabling file viewers..."
+
+# Enable PDF viewer (built-in)
+sudo -u www-data php occ app:enable files_pdfviewer 2>/dev/null || {
+  log_and_console "  ⚠ PDF viewer not available as built-in app"
+}
+
+# Enable text editor (built-in)
+sudo -u www-data php occ app:enable files_texteditor 2>/dev/null || true
+
+# Install and enable Viewer app (for images, videos, PDFs)
+if sudo -u www-data php occ app:install viewer 2>&1 | tee -a "$LOG_FILE"; then
+  sudo -u www-data php occ app:enable viewer
+  log_and_console "✓ Viewer app installed (images, videos, PDFs)"
+else
+  log_and_console "  ⚠ Viewer app installation failed (may need manual installation)"
+fi
+
 # Set proper permissions
 chown -R www-data:www-data "$NEXTCLOUD_WEB_DIR"
 chown -R www-data:www-data "$NEXTCLOUD_DATA_DIR"
@@ -84,30 +103,50 @@ log_and_console "✓ Default example files disabled for new users"
 # Remove default sample content from admin user
 log_and_console "Removing default sample content from admin user..."
 ADMIN_FILES_DIR="$NEXTCLOUD_DATA_DIR/$NEXTCLOUD_ADMIN_USER/files"
+
+# Wait a moment for Nextcloud to initialize user directory
+sleep 2
+
+# Trigger user directory creation by running a files:scan
+sudo -u www-data php occ files:scan "$NEXTCLOUD_ADMIN_USER" --quiet 2>/dev/null || true
+
+# Now remove all default content
 if [ -d "$ADMIN_FILES_DIR" ]; then
-  # Remove Nextcloud sample files
+  log_and_console "Admin files directory found, removing default content..."
+  
+  # Remove ALL Nextcloud sample files
   rm -f "$ADMIN_FILES_DIR/Nextcloud intro.mp4" 2>/dev/null || true
   rm -f "$ADMIN_FILES_DIR/Nextcloud Manual.pdf" 2>/dev/null || true
   rm -f "$ADMIN_FILES_DIR/Nextcloud.png" 2>/dev/null || true
+  rm -f "$ADMIN_FILES_DIR/Nextcloud"*.* 2>/dev/null || true
   rm -f "$ADMIN_FILES_DIR/Reasons to use Nextcloud.pdf" 2>/dev/null || true
   rm -f "$ADMIN_FILES_DIR/Readme.md" 2>/dev/null || true
+  rm -f "$ADMIN_FILES_DIR/README.md" 2>/dev/null || true
   rm -f "$ADMIN_FILES_DIR/Templates credits.md" 2>/dev/null || true
+  rm -f "$ADMIN_FILES_DIR/Welcome"*.* 2>/dev/null || true
   
-  # Remove default folders (but keep our Team folders)
+  # Remove ALL default personal folders
   rm -rf "$ADMIN_FILES_DIR/Documents" 2>/dev/null || true
   rm -rf "$ADMIN_FILES_DIR/Photos" 2>/dev/null || true
   rm -rf "$ADMIN_FILES_DIR/Templates" 2>/dev/null || true
+  rm -rf "$ADMIN_FILES_DIR/Music" 2>/dev/null || true
+  rm -rf "$ADMIN_FILES_DIR/Videos" 2>/dev/null || true
   
-  # Remove default app folders (will be recreated with Team prefix)
+  # Remove default app folders (will be recreated with Team prefix if apps are enabled)
   rm -rf "$ADMIN_FILES_DIR/Talk" 2>/dev/null || true
   rm -rf "$ADMIN_FILES_DIR/Notes" 2>/dev/null || true
+  rm -rf "$ADMIN_FILES_DIR/Deck" 2>/dev/null || true
   
   # Rescan admin files to update the database
+  log_and_console "Scanning files to update database..."
   sudo -u www-data php occ files:scan "$NEXTCLOUD_ADMIN_USER" --quiet
   
-  log_and_console "✓ Default sample content removed from admin user"
+  # Force a second scan to ensure database is in sync
+  sudo -u www-data php occ files:scan "$NEXTCLOUD_ADMIN_USER" --quiet
+  
+  log_and_console "✓ All default sample content and personal folders removed"
 else
-  log_and_console "⚠ Admin files directory not found yet - sample content will be removed after first login"
+  log_and_console "⚠ Admin files directory not found - will be cleaned on first login"
 fi
 
 # Disable unwanted default apps
@@ -291,8 +330,29 @@ if [ "$ENABLE_OFFICE_SUITE" = "true" ]; then
   fi
   
   # Configure to use built-in CODE server
+  log_and_console "Configuring Collabora Online settings..."
+  
+  # Set WOPI URL to use the domain
   sudo -u www-data php occ config:app:set richdocuments wopi_url --value="https://$DOMAIN"
+  
+  # Disable certificate verification (we're using Let's Encrypt which is trusted)
   sudo -u www-data php occ config:app:set richdocuments disable_certificate_verification --value="no"
+  
+  # Use built-in CODE server
+  sudo -u www-data php occ config:app:set richdocuments public_wopi_url --value=""
+  
+  # Enable all document types
+  sudo -u www-data php occ config:app:set richdocuments doc_format --value="ooxml"
+  
+  # Allow editing by default
+  sudo -u www-data php occ config:app:set richdocuments edit_groups --value=""
+  
+  # Verify richdocumentscode is running
+  if sudo -u www-data php occ richdocumentscode:activate 2>/dev/null; then
+    log_and_console "  ✓ Built-in CODE server activated"
+  else
+    log_and_console "  ℹ Built-in CODE server activation attempted"
+  fi
   
   # Set default save location to Team Files folder (if it exists)
   if [ "$FILES_CREATE_SHARED" = "true" ]; then
@@ -910,9 +970,26 @@ fi
 log_and_console "✓ Optional apps configuration complete"
 log_and_console ""
 
-# Set up cron job for Nextcloud background tasks
-log_and_console "Setting up cron job for background tasks..."
-(crontab -u www-data -l 2>/dev/null; echo "*/5 * * * * php -f $NEXTCLOUD_WEB_DIR/cron.php") | crontab -u www-data -
+# Set up cron jobs for Nextcloud
+log_and_console "Setting up cron jobs for Nextcloud..."
+
+# Create temporary cron file
+cat > /tmp/nextcloud-cron << EOF
+# Nextcloud background tasks (every 5 minutes)
+*/5 * * * * php -f $NEXTCLOUD_WEB_DIR/cron.php
+
+# Nextcloud file scan to sync filesystem with database (daily at 3 AM)
+0 3 * * * php $NEXTCLOUD_WEB_DIR/occ files:scan --all --quiet
+
+EOF
+
+# Install cron jobs for www-data user
+crontab -u www-data /tmp/nextcloud-cron
+rm -f /tmp/nextcloud-cron
+
+log_and_console "✓ Cron jobs configured:"
+log_and_console "  - Background tasks: Every 5 minutes"
+log_and_console "  - File system scan: Daily at 3:00 AM"
 
 log_and_console "✓ NextCloud CLI installation and configuration completed"
 log_and_console "  - Admin username: $NEXTCLOUD_ADMIN_USER"
