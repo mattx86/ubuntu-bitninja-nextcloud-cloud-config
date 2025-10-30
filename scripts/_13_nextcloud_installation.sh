@@ -157,7 +157,9 @@ sudo -u www-data php occ app:disable photos 2>/dev/null || true
 sudo -u www-data php occ app:disable memories 2>/dev/null || true
 # Disable First Run Wizard (welcome popup on first login)
 sudo -u www-data php occ app:disable firstrunwizard 2>/dev/null || true
-log_and_console "✓ Unwanted apps disabled (Photos, Memories, First Run Wizard)"
+# Disable Survey Client (Help Improve Nextcloud notifications)
+sudo -u www-data php occ app:disable survey_client 2>/dev/null || true
+log_and_console "✓ Unwanted apps disabled (Photos, Memories, First Run Wizard, Survey Client)"
 
 # Disable all user registration
 log_and_console "Disabling user registration..."
@@ -1004,12 +1006,18 @@ try {
     $config->deleteUserValue($adminUser, 'firstrunwizard', 'show');
     $config->deleteUserValue($adminUser, 'firstrunwizard', 'state');
     
+    // Disable "Help Improve Nextcloud" survey notification
+    $config->setAppValue('survey_client', 'dismissed', 'yes');
+    $config->deleteAppValue('survey_client', 'last_sent');
+    $config->deleteUserValue($adminUser, 'survey_client', 'dismissed');
+    
     $qb = $connection->getQueryBuilder();
     $qb->delete('notifications')
        ->where($qb->expr()->eq('user', $qb->createNamedParameter($adminUser)))
        ->execute();
     echo "✓ Dashboard and notifications cleared\n";
     echo "✓ First-run wizard settings cleared\n";
+    echo "✓ 'Help Improve Nextcloud' survey disabled\n";
 } catch (\Exception $e) {
     echo "⚠ Dashboard: " . $e->getMessage() . "\n";
 }
@@ -1090,6 +1098,34 @@ try {
     echo "⚠ Files: " . $e->getMessage() . "\n";
 }
 
+// 6. Clear default contacts
+try {
+    // Delete all contacts from default addressbook
+    $qb = $connection->getQueryBuilder();
+    
+    // Get addressbook IDs for admin user
+    $qb->select('id')
+       ->from('addressbooks')
+       ->where($qb->expr()->eq('principaluri', $qb->createNamedParameter('principals/users/' . $adminUser)));
+    $result = $qb->execute();
+    $addressbookIds = $result->fetchAll(\PDO::FETCH_COLUMN);
+    $result->closeCursor();
+    
+    $removedCount = 0;
+    foreach ($addressbookIds as $addressbookId) {
+        // Delete all cards in this addressbook
+        $qb = $connection->getQueryBuilder();
+        $qb->delete('cards')
+           ->where($qb->expr()->eq('addressbookid', $qb->createNamedParameter($addressbookId)))
+           ->execute();
+        $removedCount++;
+    }
+    
+    echo "✓ Default contacts cleared ($removedCount addressbooks)\n";
+} catch (\Exception $e) {
+    echo "⚠ Contacts: " . $e->getMessage() . "\n";
+}
+
 echo "\n✓ Welcome content cleanup complete!\n";
 PHPEOF
 
@@ -1112,6 +1148,145 @@ log_and_console "  - Talk (changelog conversations)"
 log_and_console "  - Files (welcome tips and hints)"
 log_and_console "  - Notes (welcome notes)"
 log_and_console "  - Deck (welcome boards)"
+log_and_console "  - Contacts (default contacts)"
+log_and_console ""
+
+# ===== CUSTOM THEMING =====
+log_and_console "=== APPLYING CUSTOM THEMING ==="
+log_and_console "Configuring UI customizations..."
+
+# Create custom CSS for light blue and white theme
+cat > /tmp/custom_theme.css <<'EOF'
+/* ===== LIGHT BLUE AND WHITE THEME ===== */
+
+/* Always show menu icon text */
+#appmenu li a .app-menu-entry__label {
+    opacity: 1 !important;
+    display: inline-block !important;
+}
+
+#appmenu li a {
+    padding-right: 12px !important;
+}
+
+/* Ensure icons and text are properly aligned */
+#appmenu li {
+    min-width: auto !important;
+}
+
+/* ===== COLOR SCHEME ===== */
+
+/* Top header bar - Light blue */
+#header {
+    background-color: #4A90E2 !important;
+    background-image: none !important;
+}
+
+/* App menu - Light blue */
+#appmenu {
+    background-color: #4A90E2 !important;
+}
+
+/* App menu items hover - Darker blue */
+#appmenu li:hover,
+#appmenu li:focus,
+#appmenu li a:hover,
+#appmenu li a:focus {
+    background-color: #357ABD !important;
+}
+
+/* Active/selected app - White background with blue text */
+#appmenu li.active,
+#appmenu li.active a {
+    background-color: #FFFFFF !important;
+    color: #4A90E2 !important;
+}
+
+/* Menu text color - White */
+#appmenu li a,
+#appmenu li a .app-menu-entry__label {
+    color: #FFFFFF !important;
+}
+
+/* Active menu text - Blue */
+#appmenu li.active a,
+#appmenu li.active a .app-menu-entry__label {
+    color: #4A90E2 !important;
+}
+
+/* Header icons - White */
+#header .header-right > div > a,
+#header .menutoggle {
+    color: #FFFFFF !important;
+}
+
+/* User menu button - White */
+#expanddiv {
+    color: #FFFFFF !important;
+}
+
+/* Search bar */
+.searchbox input[type="search"] {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: #FFFFFF !important;
+}
+
+.searchbox input[type="search"]::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Primary buttons - Light blue */
+.primary,
+button.primary,
+input[type="submit"].primary,
+input[type="button"].primary {
+    background-color: #4A90E2 !important;
+    border-color: #4A90E2 !important;
+    color: #FFFFFF !important;
+}
+
+.primary:hover,
+button.primary:hover,
+input[type="submit"].primary:hover,
+input[type="button"].primary:hover {
+    background-color: #357ABD !important;
+    border-color: #357ABD !important;
+}
+
+/* Links - Light blue */
+a,
+.app-navigation a {
+    color: #4A90E2 !important;
+}
+
+a:hover,
+.app-navigation a:hover {
+    color: #357ABD !important;
+}
+
+/* Selected items in navigation */
+.app-navigation-entry.active,
+.app-navigation-entry.active > a {
+    background-color: rgba(74, 144, 226, 0.1) !important;
+    border-left: 4px solid #4A90E2 !important;
+}
+EOF
+
+# Apply custom CSS via Nextcloud theming
+sudo -u www-data php occ config:system:set theme --value=""
+sudo -u www-data mkdir -p "$NEXTCLOUD_WEB_DIR/themes/custom"
+sudo -u www-data mkdir -p "$NEXTCLOUD_WEB_DIR/themes/custom/core/css"
+sudo -u www-data cp /tmp/custom_theme.css "$NEXTCLOUD_WEB_DIR/themes/custom/core/css/custom.css"
+rm -f /tmp/custom_theme.css
+
+# Set custom theme
+sudo -u www-data php occ config:system:set theme --value="custom"
+
+log_and_console "✓ Custom theming applied"
+log_and_console "  - Light blue and white color scheme"
+log_and_console "  - Menu icon text always visible"
+log_and_console "  - Primary color: #4A90E2 (light blue)"
+log_and_console "  - Accent color: #357ABD (darker blue)"
 log_and_console ""
 
 # Set up cron jobs for Nextcloud
